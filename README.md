@@ -93,6 +93,15 @@ docker compose up -d db cache ctfd
 
 Wait ~15 seconds, then open **http://localhost:8000**.
 
+> **Docker lifecycle cheat-sheet**
+> ```bash
+> docker compose up -d db cache ctfd   # start (keep data)
+> docker compose down                  # stop  (keep data)
+> docker compose down -v               # ⚠️  stop + wipe database (full reset)
+> docker compose logs -f ctfd          # watch CTFd logs
+> docker compose ps                    # check container health
+> ```
+
 ### 3 — Complete the first-boot wizard
 
 1. Enter your event name — e.g. `FortiCNAPP Cloud Defender Challenge`
@@ -397,11 +406,17 @@ All `content:` values containing `: ` substrings must be quoted. Example:
 - content: "Look for this (hint: check section 5)."
 ```
 
-**Full reset**
+**Stop the stack (keep data)**
 ```bash
-docker compose down -v          # ⚠️ drops the CTFd database — all scores erased
+docker compose down             # stops all containers, volumes preserved
+docker compose up -d db cache ctfd    # restart
+```
+
+**Full reset (wipe all data)**
+```bash
+docker compose down -v          # ⚠️ drops the CTFd database — all scores and challenges erased
 docker compose up -d db cache ctfd
-# Redo wizard, generate new token, re-run bridge
+# Redo first-boot wizard, generate new token, re-run bridge
 ```
 
 ---
