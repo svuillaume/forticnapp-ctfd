@@ -15,6 +15,9 @@ COPY ctfd.py ctfbuilder.py build.py ./
 # Copy static challenge schema
 COPY ctf/ ./ctf/
 
+# Bundle theme CSS (pushed to CTFd theme_header on every run)
+COPY fortinet.css ./
+
 ENV STATIC_SCHEMA_DIR=/app/ctf
 
 ENTRYPOINT ["python", "build.py", "--build"]

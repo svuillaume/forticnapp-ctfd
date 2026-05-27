@@ -135,8 +135,57 @@ def main():
     if args.build or (not args.answers):
         logger.info('Building static CTF from schema: %s', schema)
         cb.build_ctf(schema, args.category)
+        _apply_theme(ctfd, config)
         logger.info('Static CTF build complete.')
         sys.exit(0)
+
+
+def _apply_theme(ctfd, config: dict) -> None:
+    """Push FortiGuard Labs dark theme CSS to CTFd theme_header.
+
+    CTFd's base.html renders {{ Configs.theme_header }} — the 'css' config
+    key is stored but never output to the page. CSS must be wrapped in a
+    <style> block and written to theme_header.
+    """
+    import requests
+
+    # Look for the bundled CSS alongside this script
+    css_candidates = [
+        os.path.join(os.path.dirname(__file__), 'fortinet.css'),
+        '/app/fortinet.css',
+        '/app/theme/fortinet.css',
+    ]
+    css = ''
+    for path in css_candidates:
+        if isfile(path):
+            with open(path) as fh:
+                css = fh.read()
+            logger.info('Applying Fortinet theme from %s (%d chars)', path, len(css))
+            break
+
+    if not css:
+        logger.warning('fortinet.css not found — skipping theme injection')
+        return
+
+    payload = {
+        'theme_header': f'<style>\n{css}\n</style>',
+    }
+    try:
+        r = requests.patch(
+            f"{config['ctfd_url']}/api/v1/configs",
+            json=payload,
+            headers={
+                'Authorization': f"Token {config['ctfd_api_key']}",
+                'Content-Type': 'application/json',
+            },
+            timeout=30,
+        )
+        if r.ok:
+            logger.info('FortiGuard Labs dark theme applied to CTFd.')
+        else:
+            logger.warning('Theme apply failed [%d]: %s', r.status_code, r.text[:200])
+    except Exception as exc:
+        logger.warning('Could not apply theme: %s', exc)
 
 
 if __name__ == '__main__':

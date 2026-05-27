@@ -168,12 +168,15 @@ class CTFdClient:
                 log.info("Applying Fortinet theme CSS from %s", candidate)
                 break
 
+        # CTFd base.html renders {{ Configs.theme_header }} — NOT {{ Configs.css }}.
+        # The "css" config key is stored but never output to the page.
+        # Wrap the CSS in a <style> block and push it to theme_header.
         payload: dict[str, str] = {
             "ctf_name": "FortiCNAPP Cloud Defender Challenge",
             "ctf_description": "Triage real cloud threats. Powered by FortiCNAPP.",
         }
         if css:
-            payload["css"] = css
+            payload["theme_header"] = f"<style>\n{css}\n</style>"
 
         try:
             r = self.session.patch(
