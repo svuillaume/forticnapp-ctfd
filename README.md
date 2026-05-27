@@ -104,7 +104,7 @@ Wait ~15 seconds, then open **http://localhost:8000**.
 
 ### 3 — Complete the first-boot wizard
 
-1. Enter your event name — e.g. `FortiCNAPP Cloud Defender Challenge`
+1. Enter your event name — e.g. `Capture the Flag powered by FortiCNAPP`
 2. Create an admin user (remember these credentials)
 3. Choose **Users** or **Teams** scoring mode
 4. Click **Finish Setup**

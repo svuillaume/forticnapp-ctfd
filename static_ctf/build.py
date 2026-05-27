@@ -51,7 +51,7 @@ def config_from_env() -> dict:
         # FortiCNAPP tenant vars — used in {{ CONFIG_ACCOUNT }} etc.
         'account':       os.environ.get('FORTICNAPP_ACCOUNT', 'forticnapp-demo'),
         'subaccount':    os.environ.get('FORTICNAPP_SUBACCOUNT', ''),
-        'ctf_name':      os.environ.get('CTF_NAME', 'FortiCNAPP Cloud Defender Challenge'),
+        'ctf_name':      os.environ.get('CTF_NAME', 'Capture the Flag powered by FortiCNAPP'),
     }
 
 

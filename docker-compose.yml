@@ -128,7 +128,7 @@ services:
       - CTFD_ADMIN_TOKEN=${CTFD_ADMIN_TOKEN}
       - FORTICNAPP_ACCOUNT=${FORTICNAPP_ACCOUNT:-forticnapp-demo}
       - FORTICNAPP_SUBACCOUNT=${FORTICNAPP_SUBACCOUNT:-}
-      - CTF_NAME=${CTF_NAME:-FortiCNAPP Cloud Defender Challenge}
+      - CTF_NAME=${CTF_NAME:-Capture the Flag powered by FortiCNAPP}
       - STATIC_SCHEMA_DIR=/app/ctf
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
     depends_on:

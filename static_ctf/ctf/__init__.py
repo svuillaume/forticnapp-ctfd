@@ -21,5 +21,5 @@ def build_config(config):
     config['ctfd_api_key'] = os.environ.get('CTFD_ADMIN_TOKEN', '')
     config['account']      = os.environ.get('FORTICNAPP_ACCOUNT', 'forticnapp-demo')
     config['subaccount']   = os.environ.get('FORTICNAPP_SUBACCOUNT', '')
-    config['ctf_name']     = os.environ.get('CTF_NAME', 'FortiCNAPP Cloud Defender Challenge')
+    config['ctf_name']     = os.environ.get('CTF_NAME', 'Capture the Flag powered by FortiCNAPP')
     return config

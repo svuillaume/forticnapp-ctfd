@@ -172,7 +172,7 @@ class CTFdClient:
         # The "css" config key is stored but never output to the page.
         # Wrap the CSS in a <style> block and push it to theme_header.
         payload: dict[str, str] = {
-            "ctf_name": "FortiCNAPP Cloud Defender Challenge",
+            "ctf_name": "Capture the Flag powered by FortiCNAPP",
             "ctf_description": "Triage real cloud threats. Powered by FortiCNAPP.",
         }
         if css:
