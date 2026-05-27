@@ -6,20 +6,19 @@
     admin 0.0.0.0:2019
 }
 
-# ── CTFd — HTTPS on port 4443 ────────────────────────────────────────────────
-samvblogs.duckdns.org:4443 {
+# ── CTFd — HTTPS ──────────────────────────────────────────────────────────────
+# FQDN and HTTPS_PORT are injected from .env via docker-compose environment block.
+{env.FQDN}:{env.HTTPS_PORT} {
 
     # TLS via Let's Encrypt DNS-01 challenge (DuckDNS).
     # Caddy calls the DuckDNS API to create the _acme-challenge TXT record.
-    # No port 80/4443 inbound from internet needed for cert issuance.
+    # No inbound port 80 needed for cert issuance.
     tls {
         dns duckdns {env.DUCKDNS_TOKEN}
     }
 
-    # Compression
     encode gzip
 
-    # Security / HTTPS enforcement headers
     header {
         Strict-Transport-Security "max-age=31536000; includeSubDomains"
         X-Content-Type-Options    nosniff
@@ -28,7 +27,6 @@ samvblogs.duckdns.org:4443 {
         -Server
     }
 
-    # Health probe for load balancers
     respond /caddy-health 200
 
     # CTFd reverse proxy — preserve host + forward IP for REVERSE_PROXY=true
@@ -37,7 +35,6 @@ samvblogs.duckdns.org:4443 {
         header_up X-Forwarded-For  {remote_host}
         header_up X-Forwarded-Proto {scheme}
         header_up X-Real-IP         {remote_host}
-
         # WebSocket support (CTFd uses Socket.IO for real-time updates)
         header_up Connection        {http.request.header.Connection}
         header_up Upgrade           {http.request.header.Upgrade}
@@ -47,24 +44,21 @@ samvblogs.duckdns.org:4443 {
 # ── Trigger service — HTTPS on port 5555 ─────────────────────────────────────
 # Home page JS connects to window.location.hostname + ':5555' for build triggers.
 # Caddy reuses the same cert (same domain, different port).
-samvblogs.duckdns.org:5555 {
+{env.FQDN}:5555 {
 
     tls {
         dns duckdns {env.DUCKDNS_TOKEN}
     }
 
-    # Allow browser requests from the CTFd origin
     header {
-        Access-Control-Allow-Origin  "https://samvblogs.duckdns.org"
+        Access-Control-Allow-Origin  "https://{env.FQDN}:{env.HTTPS_PORT}"
         Access-Control-Allow-Methods "GET, POST, OPTIONS"
         Access-Control-Allow-Headers "Content-Type"
         -Server
     }
 
-    # Pre-flight OPTIONS requests
     @options method OPTIONS
     respond @options 204
 
-    # Trigger Flask service
     reverse_proxy trigger:5555
 }
