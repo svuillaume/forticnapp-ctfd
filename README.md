@@ -430,7 +430,10 @@ docker compose up -d db cache ctfd trigger
 # Start (HTTPS)
 docker compose up -d db cache ctfd trigger caddy
 
-# Stop (keep data)
+# Stop Caddy only (revert to HTTP)
+docker compose stop caddy
+
+# Stop everything (keep data)
 docker compose down
 
 # Full reset — wipes database and all scores
