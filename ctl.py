@@ -21,6 +21,55 @@ RESET  = "\033[0m"
 ROOT = Path(__file__).parent
 ENV  = ROOT / ".env"
 
+# ── TLS cert probe ─────────────────────────────────────────────────────────────
+# Caddy stores certs inside the caddy_data Docker volume at:
+#   /data/caddy/certificates/acme-v02.api.letsencrypt.org-directory/<fqdn>/
+# We spin up a throwaway alpine container (fast, ~0.3 s) to check the path.
+# Result is cached for the session so the menu stays snappy.
+
+_cert_cache: dict[str, bool] = {}
+
+def _find_caddy_volume() -> str | None:
+    """Return the caddy_data volume name (docker-compose prefixes it with project name)."""
+    try:
+        r = subprocess.run(
+            ["docker", "volume", "ls", "--filter", "name=caddy_data", "--format", "{{.Name}}"],
+            capture_output=True, text=True,
+        )
+        names = [n.strip() for n in r.stdout.strip().splitlines() if n.strip()]
+        return names[0] if names else None
+    except Exception:
+        return None
+
+def has_cert(fqdn: str) -> bool:
+    """Return True if Caddy already holds a valid cert for fqdn in its data volume."""
+    if not fqdn:
+        return False
+    if fqdn in _cert_cache:
+        return _cert_cache[fqdn]
+
+    vol = _find_caddy_volume()
+    if not vol:
+        _cert_cache[fqdn] = False
+        return False
+
+    cert_path = f"/data/caddy/certificates/acme-v02.api.letsencrypt.org-directory/{fqdn}"
+    try:
+        r = subprocess.run(
+            ["docker", "run", "--rm", "-v", f"{vol}:/data", "alpine",
+             "test", "-d", cert_path],
+            capture_output=True,
+        )
+        result = r.returncode == 0
+    except Exception:
+        result = False
+
+    _cert_cache[fqdn] = result
+    return result
+
+def invalidate_cert_cache() -> None:
+    _cert_cache.clear()
+
 # ── .env helpers ───────────────────────────────────────────────────────────────
 
 def read_env() -> dict:
@@ -131,12 +180,16 @@ def get_status() -> str:
 def build_menu(env: dict) -> str:
     fqdn       = env.get("FQDN", "")
     https_port = env.get("HTTPS_PORT") or "4443"
-    https_ok   = bool(fqdn and env.get("DUCKDNS_TOKEN") and env.get("CTFD_ADMIN_TOKEN"))
     token_ok   = bool(env.get("CTFD_ADMIN_TOKEN"))
+    cert_found = has_cert(fqdn) if fqdn else False
+    can_https  = bool(fqdn and token_ok and (cert_found or env.get("DUCKDNS_TOKEN")))
 
-    if https_ok:
-        url = f"https://{fqdn}:{https_port}" if https_port != "443" else f"https://{fqdn}"
-        start_info = f"{DIM}→ {url}{RESET}"
+    url = (f"https://{fqdn}:{https_port}" if https_port != "443" else f"https://{fqdn}") if fqdn else ""
+
+    if can_https and cert_found:
+        start_info = f"{DIM}→ {url}{RESET}  {GREEN}🔒 cert found{RESET}"
+    elif can_https:
+        start_info = f"{DIM}→ {url}{RESET}  {YELLOW}(cert will be obtained on first start){RESET}"
     elif token_ok:
         start_info = f"{DIM}→ http://localhost:8000{RESET}  {YELLOW}(HTTPS not configured){RESET}"
     else:
@@ -174,17 +227,28 @@ def run(cmd: list[str]) -> None:
 
 
 def start(env: dict) -> None:
-    https_ok = bool(env.get("FQDN") and env.get("DUCKDNS_TOKEN") and env.get("CTFD_ADMIN_TOKEN"))
-    services = ["db", "cache", "ctfd", "trigger"] + (["caddy"] if https_ok else [])
-    run(["docker", "compose", "up", "-d"] + services)
-
     fqdn       = env.get("FQDN", "")
     https_port = env.get("HTTPS_PORT") or "4443"
-    url = (
-        (f"https://{fqdn}:{https_port}" if https_port != "443" else f"https://{fqdn}")
-        if https_ok else "http://localhost:8000"
-    )
-    print(f"\n{CYAN}Open{RESET} {BOLD}{url}{RESET}")
+    token_ok   = bool(env.get("CTFD_ADMIN_TOKEN"))
+
+    # Use HTTPS if:
+    #   a) cert already exists in caddy_data volume for this FQDN  (reuse, no token needed)
+    #   b) DUCKDNS_TOKEN is set so Caddy can obtain a new cert
+    cert_found = has_cert(fqdn) if fqdn else False
+    use_https  = bool(fqdn and token_ok and (cert_found or env.get("DUCKDNS_TOKEN")))
+
+    services = ["db", "cache", "ctfd", "trigger"] + (["caddy"] if use_https else [])
+    run(["docker", "compose", "up", "-d"] + services)
+
+    # Invalidate cache so next menu refresh re-probes after Caddy may have issued a cert
+    invalidate_cert_cache()
+
+    if use_https:
+        url = f"https://{fqdn}:{https_port}" if https_port != "443" else f"https://{fqdn}"
+        src = "existing cert" if cert_found else "new cert — Caddy is obtaining it (~30 s)"
+        print(f"\n{CYAN}Open{RESET} {BOLD}{url}{RESET}  {DIM}({src}){RESET}")
+    else:
+        print(f"\n{CYAN}Open{RESET} {BOLD}http://localhost:8000{RESET}")
 
 
 # ── Entry ──────────────────────────────────────────────────────────────────────
