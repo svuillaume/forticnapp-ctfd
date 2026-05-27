@@ -294,14 +294,17 @@ Then re-run this script.
     return False
 
 
-def run(cmd: list[str]) -> None:
+def run(cmd: list[str]) -> bool:
+    """Run a shell command. Returns True if it was executed, False if blocked (e.g. no Docker)."""
     if not check_docker():
-        return
+        return False
     print(f"\n{DIM}▶ {' '.join(cmd)}{RESET}\n")
     try:
         subprocess.run(cmd, check=False)
+        return True
     except KeyboardInterrupt:
         print(f"\n{YELLOW}Interrupted.{RESET}")
+        return False
 
 
 def start(env: dict) -> None:
@@ -309,16 +312,16 @@ def start(env: dict) -> None:
     https_port = env.get("HTTPS_PORT") or "4443"
     token_ok   = bool(env.get("CTFD_ADMIN_TOKEN"))
 
-    # Use HTTPS if:
-    #   a) cert already exists in caddy_data volume for this FQDN  (reuse, no token needed)
-    #   b) DUCKDNS_TOKEN is set so Caddy can obtain a new cert
     cert_found = has_cert(fqdn) if fqdn else False
     use_https  = bool(fqdn and token_ok and (cert_found or env.get("DUCKDNS_TOKEN")))
 
     services = ["db", "cache", "ctfd", "trigger"] + (["caddy"] if use_https else [])
-    run(["docker", "compose", "up", "-d"] + services)
 
-    # Invalidate cache so next menu refresh re-probes after Caddy may have issued a cert
+    ok = run(["docker", "compose", "up", "-d"] + services)
+    if not ok:
+        return   # Docker unavailable — error already printed by run()
+
+    # Invalidate cert cache so next menu re-probes after Caddy may have obtained a cert
     invalidate_cert_cache()
 
     if use_https:
@@ -333,10 +336,6 @@ def start(env: dict) -> None:
 
 def main() -> None:
     os.chdir(ROOT)
-
-    # Docker reachability check (warn but don't block — user may fix and retry)
-    check_docker()
-
     env = read_env()
 
     # First run — no .env or placeholder key
