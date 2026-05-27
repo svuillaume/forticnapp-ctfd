@@ -136,6 +136,7 @@ def main():
         logger.info('Building static CTF from schema: %s', schema)
         cb.build_ctf(schema, args.category)
         _apply_theme(ctfd, config)
+        _apply_home_page(ctfd, config)
         logger.info('Static CTF build complete.')
         sys.exit(0)
 
@@ -186,6 +187,61 @@ def _apply_theme(ctfd, config: dict) -> None:
             logger.warning('Theme apply failed [%d]: %s', r.status_code, r.text[:200])
     except Exception as exc:
         logger.warning('Could not apply theme: %s', exc)
+
+
+def _apply_home_page(ctfd, config: dict) -> None:
+    """Replace CTFd index page with FortiCNAPP landing page (two mode cards)."""
+    import requests
+
+    html_candidates = [
+        os.path.join(os.path.dirname(__file__), 'home.html'),
+        '/app/home.html',
+    ]
+    html = ''
+    for path in html_candidates:
+        if isfile(path):
+            with open(path) as fh:
+                html = fh.read()
+            logger.info('Applying home page from %s', path)
+            break
+
+    if not html:
+        logger.warning('home.html not found — skipping home page update')
+        return
+
+    headers = {
+        'Authorization': f"Token {config['ctfd_api_key']}",
+        'Content-Type': 'application/json',
+    }
+    base = config['ctfd_url']
+
+    # Find the index page id
+    try:
+        r = requests.get(f'{base}/api/v1/pages', headers=headers, timeout=15)
+        pages = r.json().get('data', [])
+        page_id = next((p['id'] for p in pages if p.get('route') == 'index'), None)
+
+        payload = {
+            'title': config.get('ctf_name', 'Capture the Flag powered by FortiCNAPP'),
+            'content': html,
+            'route': 'index',
+            'draft': False,
+            'auth_required': False,
+        }
+
+        if page_id:
+            r2 = requests.patch(f'{base}/api/v1/pages/{page_id}',
+                                json=payload, headers=headers, timeout=15)
+        else:
+            r2 = requests.post(f'{base}/api/v1/pages',
+                               json=payload, headers=headers, timeout=15)
+
+        if r2.ok and r2.json().get('success'):
+            logger.info('Home page (mode selector) applied to CTFd.')
+        else:
+            logger.warning('Home page update failed [%d]: %s', r2.status_code, r2.text[:200])
+    except Exception as exc:
+        logger.warning('Could not apply home page: %s', exc)
 
 
 if __name__ == '__main__':

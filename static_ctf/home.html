@@ -1,0 +1,198 @@
+<div class="forticnapp-home">
+
+  <!-- Hero -->
+  <div class="fctf-hero">
+    <div class="fctf-hero-glow"></div>
+    <div class="fctf-hero-grid"></div>
+    <div class="fctf-hero-content">
+      <div class="fctf-shield">
+        <svg viewBox="0 0 60 70" xmlns="http://www.w3.org/2000/svg">
+          <path d="M30 3 L57 15 L57 38 C57 52 45 63 30 67 C15 63 3 52 3 38 L3 15 Z" fill="#DA291C"/>
+          <text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" font-family="Inter,sans-serif" font-weight="700" font-size="28" fill="white">F</text>
+        </svg>
+      </div>
+      <h1 class="fctf-title">Capture the Flag</h1>
+      <p class="fctf-subtitle">powered by <span class="fctf-brand">FortiCNAPP</span></p>
+      <p class="fctf-desc">
+        You are the on-call SOC analyst. FortiCNAPP just lit up.<br>
+        Investigate real cloud threats — triage alerts, hunt CVEs, map compliance violations.
+      </p>
+    </div>
+  </div>
+
+  <!-- Mode cards -->
+  <div class="fctf-modes">
+
+    <div class="fctf-mode-card fctf-static">
+      <div class="fctf-mode-badge">OFFLINE READY</div>
+      <div class="fctf-mode-icon"><i class="fas fa-database"></i></div>
+      <h2>Static Mode</h2>
+      <p class="fctf-mode-desc">
+        21 hand-crafted challenges based on real FortiCNAPP scenarios.
+        No API credentials required — works offline and on the road.
+      </p>
+      <ul class="fctf-mode-cats">
+        <li><span class="fctf-dot fctf-red"></span> Alert Triage — 5 challenges</li>
+        <li><span class="fctf-dot fctf-orange"></span> Host Security — 5 challenges</li>
+        <li><span class="fctf-dot fctf-cyan"></span> Container Security — 5 challenges</li>
+        <li><span class="fctf-dot fctf-yellow"></span> Cloud Compliance — 6 challenges</li>
+      </ul>
+      <div class="fctf-cmd">
+        <span class="fctf-cmd-label">RUN</span>
+        <code>docker compose run --rm bridge-static</code>
+      </div>
+      <a href="/challenges" class="fctf-btn fctf-btn-primary">
+        <i class="fas fa-flag pr-2"></i>Start Challenges
+      </a>
+    </div>
+
+    <div class="fctf-mode-card fctf-dynamic">
+      <div class="fctf-mode-badge fctf-badge-live">LIVE DATA</div>
+      <div class="fctf-mode-icon"><i class="fas fa-satellite-dish"></i></div>
+      <h2>Dynamic Mode</h2>
+      <p class="fctf-mode-desc">
+        Challenges auto-generated from your live FortiCNAPP tenant.
+        Real findings, real CVEs, real compliance violations — fresh every run.
+      </p>
+      <ul class="fctf-mode-cats">
+        <li><span class="fctf-dot fctf-red"></span> Alert Triage — from live alerts</li>
+        <li><span class="fctf-dot fctf-orange"></span> Host Security — from real CVEs</li>
+        <li><span class="fctf-dot fctf-cyan"></span> Container Security — agentless scan</li>
+        <li><span class="fctf-dot fctf-yellow"></span> Cloud Compliance — CIS violations</li>
+      </ul>
+      <div class="fctf-cmd">
+        <span class="fctf-cmd-label">RUN</span>
+        <code>docker compose run --rm bridge</code>
+      </div>
+      <a href="/challenges" class="fctf-btn fctf-btn-outline">
+        <i class="fas fa-flag pr-2"></i>Start Challenges
+      </a>
+    </div>
+
+  </div>
+
+  <!-- Register CTA -->
+  <div class="fctf-cta">
+    <a href="/register" class="fctf-btn fctf-btn-primary fctf-btn-lg">
+      <i class="fas fa-user-plus pr-2"></i>Register to Play
+    </a>
+    <a href="/login" class="fctf-btn fctf-btn-ghost fctf-btn-lg">
+      <i class="fas fa-sign-in-alt pr-2"></i>Login
+    </a>
+  </div>
+
+</div>
+
+<style>
+.forticnapp-home { font-family: "Inter", system-ui, sans-serif; }
+
+.fctf-hero {
+  position: relative; text-align: center;
+  padding: 4rem 2rem 3rem; overflow: hidden;
+  background: linear-gradient(180deg, #060d18 0%, #09111e 100%);
+  border-bottom: 1px solid #1a2d42;
+  box-shadow: inset 0 -1px 0 #DA291C;
+  margin: -1rem -15px 0;
+}
+.fctf-hero-glow {
+  position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse at 50% -10%, rgba(218,41,28,0.14) 0%, transparent 60%);
+}
+.fctf-hero-grid {
+  position: absolute; inset: 0; pointer-events: none;
+  background-image:
+    linear-gradient(rgba(26,45,66,0.3) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(26,45,66,0.3) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+.fctf-hero-content { position: relative; z-index: 1; }
+.fctf-shield {
+  display: inline-block; width: 72px; margin-bottom: 1.25rem;
+  filter: drop-shadow(0 0 18px rgba(218,41,28,0.5));
+}
+.fctf-shield svg { width: 100%; height: auto; }
+.fctf-title {
+  font-size: 2.8rem; font-weight: 800; color: #ffffff;
+  letter-spacing: -0.02em; margin: 0 0 0.25rem; line-height: 1.1;
+}
+.fctf-subtitle { font-size: 1.05rem; color: #7a94ae; margin: 0 0 1.25rem; }
+.fctf-brand { color: #DA291C; font-weight: 700; }
+.fctf-desc { font-size: 0.95rem; color: #5a7490; max-width: 520px; margin: 0 auto; line-height: 1.7; }
+
+.fctf-modes {
+  display: flex; gap: 1.5rem; padding: 2.5rem 1rem;
+  max-width: 900px; margin: 0 auto;
+  flex-wrap: wrap; justify-content: center;
+}
+.fctf-mode-card {
+  flex: 1 1 380px; max-width: 420px;
+  background: #0e1929; border: 1px solid #1a2d42;
+  border-radius: 12px; padding: 1.75rem;
+  position: relative;
+  transition: border-color 0.25s, box-shadow 0.25s, transform 0.2s;
+  display: flex; flex-direction: column; gap: 1rem;
+}
+.fctf-mode-card:hover {
+  border-color: #243b52;
+  box-shadow: 0 0 0 1px rgba(218,41,28,0.3), 0 12px 40px rgba(218,41,28,0.1);
+  transform: translateY(-3px);
+}
+.fctf-static  { border-top: 2px solid #DA291C; }
+.fctf-dynamic { border-top: 2px solid #00b0cc; }
+
+.fctf-mode-badge {
+  position: absolute; top: -1px; right: 1.2rem;
+  font-size: 0.62rem; font-weight: 700; letter-spacing: 0.1em;
+  padding: 0.25em 0.7em; border-radius: 0 0 6px 6px;
+  background: #DA291C; color: #fff;
+}
+.fctf-badge-live { background: #00b0cc !important; color: #09111e !important; }
+
+.fctf-mode-icon { font-size: 2rem; color: #DA291C; }
+.fctf-dynamic .fctf-mode-icon { color: #00b0cc; }
+
+.fctf-mode-card h2 { font-size: 1.3rem; font-weight: 700; color: #e2eaf4; margin: 0; }
+.fctf-mode-desc { font-size: 0.88rem; color: #7a94ae; line-height: 1.65; margin: 0; }
+
+.fctf-mode-cats { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.35rem; }
+.fctf-mode-cats li { font-size: 0.8rem; color: #5a7490; display: flex; align-items: center; gap: 0.5rem; }
+.fctf-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.fctf-red    { background: #DA291C; }
+.fctf-orange { background: #e67e22; }
+.fctf-cyan   { background: #00b0cc; }
+.fctf-yellow { background: #f5a623; }
+
+.fctf-cmd {
+  display: flex; align-items: center; gap: 0.6rem;
+  background: #0b1522; border: 1px solid #243b52;
+  border-radius: 6px; padding: 0.6rem 0.9rem; margin-top: auto;
+}
+.fctf-cmd-label {
+  font-size: 0.6rem; font-weight: 800; letter-spacing: 0.1em;
+  color: #DA291C; background: rgba(218,41,28,0.1);
+  padding: 0.2em 0.5em; border-radius: 3px; flex-shrink: 0;
+}
+.fctf-dynamic .fctf-cmd-label { color: #00b0cc; background: rgba(0,176,204,0.1); }
+.fctf-cmd code {
+  font-family: "JetBrains Mono", monospace; font-size: 0.78rem;
+  color: #a0d8a0; background: none; border: none; padding: 0;
+  word-break: break-all;
+}
+
+.fctf-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0.65rem 1.5rem; border-radius: 7px;
+  font-weight: 600; font-size: 0.9rem; text-decoration: none;
+  transition: all 0.2s; letter-spacing: 0.01em;
+  border: 2px solid transparent;
+}
+.fctf-btn-primary { background: #DA291C; color: #fff; box-shadow: 0 0 12px rgba(218,41,28,0.3); }
+.fctf-btn-primary:hover { background: #ff3a2c; color: #fff; box-shadow: 0 0 22px rgba(218,41,28,0.55); transform: translateY(-1px); text-decoration: none; }
+.fctf-btn-outline { background: transparent; color: #00b0cc; border-color: #00b0cc; }
+.fctf-btn-outline:hover { background: #00b0cc; color: #09111e; box-shadow: 0 0 16px rgba(0,176,204,0.35); text-decoration: none; }
+.fctf-btn-ghost { background: transparent; color: #7a94ae; border-color: #243b52; }
+.fctf-btn-ghost:hover { border-color: #7a94ae; color: #e2eaf4; text-decoration: none; }
+.fctf-btn-lg { padding: 0.8rem 2rem; font-size: 1rem; }
+
+.fctf-cta { display: flex; gap: 1rem; justify-content: center; padding: 0 1rem 3.5rem; flex-wrap: wrap; }
+</style>
