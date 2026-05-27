@@ -1,0 +1,130 @@
+# FortiCNAPP-Connected CTF Stack
+# ------------------------------------------------------------
+# Architecture:
+#   ctfd        : Official CTFd web app (Flask) -> port 8000 on the host
+#   db          : MariaDB (CTFd's recommended backing store)
+#   cache       : Redis for sessions, rate-limiting and CTFd caching
+#   bridge      : FortiCNAPP -> CTFd challenge generator (one-shot job)
+#
+# The bridge container runs once at event start, pulls findings from your
+# FortiCNAPP tenant (or mock data), sanitizes them for customer-facing
+# demos, and pushes generated challenges into CTFd via the admin API.
+#
+# Usage:
+#   1. cp .env.example .env  and fill in values
+#   2. docker compose up -d db cache ctfd
+#   3. Browse http://localhost:8000 -> complete CTFd setup wizard
+#      (admin user, event name, etc.)
+#   4. Generate a CTFd admin API token: Admin Panel -> Settings -> Tokens
+#      and put it in .env as CTFD_ADMIN_TOKEN
+#   5. docker compose run --rm bridge
+#
+# Tested with CTFd 3.7.x and FortiCNAPP / Lacework API v2.
+
+services:
+  ctfd:
+    image: ctfd/ctfd:3.7.5
+    container_name: forticnapp-ctfd
+    restart: unless-stopped
+    ports:
+      - "${CTFD_HOST_PORT:-8000}:8000"
+    environment:
+      - UPLOAD_FOLDER=/var/uploads
+      - DATABASE_URL=mysql+pymysql://ctfd:${MYSQL_PASSWORD:-ctfd_change_me}@db/ctfd
+      - REDIS_URL=redis://cache:6379
+      - WORKERS=2
+      - SECRET_KEY=${SECRET_KEY:-forticnapp-ctf-secret-key-2026}
+      - LOG_FOLDER=/var/log/CTFd
+      - ACCESS_LOG=-
+      - ERROR_LOG=-
+      - REVERSE_PROXY=true
+    volumes:
+      - ctfd-uploads:/var/uploads
+      - ctfd-logs:/var/log/CTFd
+    depends_on:
+      db:
+        condition: service_healthy
+      cache:
+        condition: service_healthy
+    networks:
+      - ctf-net
+
+  db:
+    image: mariadb:10.11
+    container_name: forticnapp-ctfd-db
+    restart: unless-stopped
+    environment:
+      - MARIADB_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-root_change_me}
+      - MARIADB_USER=ctfd
+      - MARIADB_PASSWORD=${MYSQL_PASSWORD:-ctfd_change_me}
+      - MARIADB_DATABASE=ctfd
+      - MARIADB_AUTO_UPGRADE=1
+    volumes:
+      - ctfd-db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    # MariaDB tuning recommended by CTFd docs
+    command:
+      [
+        "mysqld",
+        "--character-set-server=utf8mb4",
+        "--collation-server=utf8mb4_unicode_ci",
+        "--wait_timeout=28800",
+        "--log-warnings=0",
+      ]
+    networks:
+      - ctf-net
+
+  cache:
+    image: redis:7-alpine
+    container_name: forticnapp-ctfd-cache
+    restart: unless-stopped
+    volumes:
+      - ctfd-cache:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - ctf-net
+
+  bridge:
+    build: ./forticnapp_ctf_api
+    container_name: forticnapp-ctf-bridge
+    # This is a one-shot job (no restart). Run with:
+    #   docker compose run --rm bridge
+    restart: "no"
+    environment:
+      # FortiCNAPP / Lacework API
+      - FORTICNAPP_ACCOUNT=${FORTICNAPP_ACCOUNT}
+      - FORTICNAPP_SUBACCOUNT=${FORTICNAPP_SUBACCOUNT:-}
+      - FORTICNAPP_API_KEY_ID=${FORTICNAPP_API_KEY_ID}
+      - FORTICNAPP_API_SECRET=${FORTICNAPP_API_SECRET}
+      # CTFd target
+      - CTFD_API_URL=http://ctfd:8000
+      - CTFD_ADMIN_TOKEN=${CTFD_ADMIN_TOKEN}
+      # Behaviour
+      - MOCK_MODE=${MOCK_MODE:-false}
+      - SANITIZE=${SANITIZE:-true}
+      - LOOKBACK_HOURS=${LOOKBACK_HOURS:-72}
+      - MAX_CHALLENGES_PER_CATEGORY=${MAX_CHALLENGES_PER_CATEGORY:-5}
+    volumes:
+      - ./sample_data:/app/sample_data:ro
+    depends_on:
+      - ctfd
+    networks:
+      - ctf-net
+
+volumes:
+  ctfd-uploads:
+  ctfd-logs:
+  ctfd-db:
+  ctfd-cache:
+
+networks:
+  ctf-net:
+    driver: bridge

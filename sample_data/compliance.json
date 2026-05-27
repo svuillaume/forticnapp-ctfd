@@ -1,0 +1,59 @@
+{
+  "data": [
+    {
+      "id": "AWS_CIS_1_5_2_1_1",
+      "title": "CIS 2.1.1 Ensure S3 Bucket Policy is set to deny HTTP requests",
+      "description": "Bucket acme-marketing-public-2024 in account 123456789012 does not enforce SSL.",
+      "severity": "High",
+      "status": "NonCompliant",
+      "service": "s3",
+      "resource": "arn:aws:s3:::acme-marketing-public-2024",
+      "account": "123456789012",
+      "recommendation": "Add a bucket policy that denies aws:SecureTransport=false. (CIS control 2.1.1)"
+    },
+    {
+      "id": "AWS_CIS_1_5_1_4",
+      "title": "CIS 1.4 Ensure no root account access key exists",
+      "description": "Root account access keys are present in account 123456789012.",
+      "severity": "Critical",
+      "status": "NonCompliant",
+      "service": "iam",
+      "resource": "arn:aws:iam::123456789012:root",
+      "account": "123456789012",
+      "recommendation": "Delete root account access keys. (CIS control 1.4)"
+    },
+    {
+      "id": "AWS_CIS_1_5_3_1",
+      "title": "CIS 3.1 Ensure CloudTrail is enabled in all regions",
+      "description": "CloudTrail is not enabled in 4 regions for account 123456789012.",
+      "severity": "High",
+      "status": "NonCompliant",
+      "service": "cloudtrail",
+      "resource": "arn:aws:cloudtrail:::trail/*",
+      "account": "123456789012",
+      "recommendation": "Create a multi-region trail. (CIS control 3.1)"
+    },
+    {
+      "id": "AWS_CIS_1_5_5_2",
+      "title": "CIS 5.2 Ensure default security group restricts all traffic",
+      "description": "Default SG sg-0123abcd allows 0.0.0.0/0 ingress on all ports.",
+      "severity": "Medium",
+      "status": "NonCompliant",
+      "service": "ec2",
+      "resource": "arn:aws:ec2:us-east-1:123456789012:security-group/sg-0123abcd",
+      "account": "123456789012",
+      "recommendation": "Remove all rules from the default security group. (CIS control 5.2)"
+    },
+    {
+      "id": "AZURE_CIS_2_0_3_1",
+      "title": "CIS 3.1 Ensure secure transfer required is set for storage accounts",
+      "description": "Storage account in subscription 11111111-1111-4111-8111-111111111111 allows HTTP.",
+      "severity": "High",
+      "status": "NonCompliant",
+      "service": "storage",
+      "resource": "/subscriptions/11111111-1111-4111-8111-111111111111/resourceGroups/rg-prod/providers/Microsoft.Storage/storageAccounts/acmeprodlogs",
+      "account": "11111111-1111-4111-8111-111111111111",
+      "recommendation": "Enable secure transfer required. (CIS control 3.1)"
+    }
+  ]
+}

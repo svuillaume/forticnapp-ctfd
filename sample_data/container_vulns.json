@@ -1,0 +1,54 @@
+{
+  "data": [
+    {
+      "vulnId": "CVE-2024-21626",
+      "severity": "Critical",
+      "status": "VULNERABLE",
+      "imageRepo": "123456789012.dkr.ecr.us-east-1.amazonaws.com/payments-api",
+      "imageTag": "v3.4.1",
+      "featureKey": { "name": "runc", "version": "1.1.7" },
+      "fixInfo": { "fix_available": 1, "fixed_version": "1.1.12" },
+      "evalCtx": { "image_id": "payments-api:v3.4.1" }
+    },
+    {
+      "vulnId": "CVE-2023-44487",
+      "severity": "High",
+      "status": "VULNERABLE",
+      "imageRepo": "123456789012.dkr.ecr.us-east-1.amazonaws.com/web-frontend",
+      "imageTag": "release-2026.05",
+      "featureKey": { "name": "nghttp2", "version": "1.51.0" },
+      "fixInfo": { "fix_available": 1, "fixed_version": "1.57.0" },
+      "evalCtx": { "image_id": "web-frontend:release-2026.05" }
+    },
+    {
+      "vulnId": "CVE-2024-3094",
+      "severity": "Critical",
+      "status": "VULNERABLE",
+      "imageRepo": "acme/build-tools",
+      "imageTag": "ubuntu-24.04",
+      "featureKey": { "name": "xz-utils", "version": "5.6.0" },
+      "fixInfo": { "fix_available": 1, "fixed_version": "5.6.1+really5.4.5" },
+      "evalCtx": { "image_id": "acme/build-tools:ubuntu-24.04" }
+    },
+    {
+      "vulnId": "CVE-2022-22965",
+      "severity": "Critical",
+      "status": "VULNERABLE",
+      "imageRepo": "acme/orders-service",
+      "imageTag": "prod-v8",
+      "featureKey": { "name": "spring-beans", "version": "5.3.16" },
+      "fixInfo": { "fix_available": 1, "fixed_version": "5.3.18" },
+      "evalCtx": { "image_id": "acme/orders-service:prod-v8" }
+    },
+    {
+      "vulnId": "CVE-2021-44228",
+      "severity": "Critical",
+      "status": "VULNERABLE",
+      "imageRepo": "acme/legacy-batch",
+      "imageTag": "2019-09",
+      "featureKey": { "name": "log4j-core", "version": "2.14.1" },
+      "fixInfo": { "fix_available": 1, "fixed_version": "2.17.1" },
+      "evalCtx": { "image_id": "acme/legacy-batch:2019-09" }
+    }
+  ]
+}

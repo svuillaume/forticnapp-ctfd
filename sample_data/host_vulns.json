@@ -1,0 +1,54 @@
+{
+  "data": [
+    {
+      "vulnId": "CVE-2024-6387",
+      "severity": "Critical",
+      "status": "Active",
+      "machineTags": {
+        "Hostname": "ip-10-0-1-42.ec2.internal",
+        "InstanceId": "i-0abcd1234ef567890",
+        "os": "AmazonLinux2",
+        "Environment": "prod"
+      },
+      "featureKey": { "name": "openssh-server", "version": "8.5p1" },
+      "fixInfo": { "fix_available": 1, "fixed_version": "9.8p1" }
+    },
+    {
+      "vulnId": "CVE-2023-4911",
+      "severity": "High",
+      "status": "Active",
+      "machineTags": {
+        "Hostname": "ip-10-0-3-17.eu-west-1.compute.internal",
+        "InstanceId": "i-09876fedcba543210",
+        "os": "Ubuntu 22.04",
+        "Environment": "prod"
+      },
+      "featureKey": { "name": "glibc", "version": "2.35-0ubuntu3.1" },
+      "fixInfo": { "fix_available": 1, "fixed_version": "2.35-0ubuntu3.4" }
+    },
+    {
+      "vulnId": "CVE-2024-1086",
+      "severity": "High",
+      "status": "Active",
+      "machineTags": {
+        "Hostname": "build-runner-04.internal.acme.example.com",
+        "os": "Debian 12",
+        "Environment": "ci"
+      },
+      "featureKey": { "name": "linux-image", "version": "6.1.0-13" },
+      "fixInfo": { "fix_available": 1, "fixed_version": "6.1.0-18" }
+    },
+    {
+      "vulnId": "CVE-2022-0185",
+      "severity": "High",
+      "status": "Active",
+      "machineTags": {
+        "Hostname": "k8s-worker-az1-03",
+        "os": "Bottlerocket",
+        "Environment": "prod"
+      },
+      "featureKey": { "name": "kernel", "version": "5.10.96" },
+      "fixInfo": { "fix_available": 1, "fixed_version": "5.10.103" }
+    }
+  ]
+}

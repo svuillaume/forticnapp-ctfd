@@ -1,0 +1,98 @@
+{
+  "data": [
+    {
+      "alertId": 100001,
+      "alertName": "Suspicious cross-account AssumeRole from new geography",
+      "severity": "Critical",
+      "alertCategory": "CloudActivity",
+      "alertInfo": {
+        "description": "User arn:aws:iam::123456789012:user/build-bot assumed role arn:aws:iam::987654321098:role/AdminCrossAccount from 203.0.113.45 (Romania). No prior history of this geography for this principal."
+      },
+      "alertModel": {
+        "mitre": {
+          "techniqueId": "T1078.004",
+          "techniqueName": "Valid Accounts: Cloud Accounts"
+        }
+      },
+      "startTime": "2026-05-26T14:12:00Z",
+      "endTime":   "2026-05-26T14:14:00Z"
+    },
+    {
+      "alertId": 100002,
+      "alertName": "Public S3 bucket created with versioning disabled",
+      "severity": "High",
+      "alertCategory": "Policy",
+      "alertInfo": {
+        "description": "Bucket s3://acme-marketing-public-2024 was created in account 123456789012 with public-read ACL and versioning disabled. Owner: alice@acme.example.com."
+      },
+      "alertModel": {
+        "mitre": {
+          "techniqueId": "T1530",
+          "techniqueName": "Data from Cloud Storage Object"
+        }
+      },
+      "startTime": "2026-05-25T09:02:11Z",
+      "endTime":   "2026-05-25T09:02:12Z"
+    },
+    {
+      "alertId": 100003,
+      "alertName": "K8s workload making outbound connection to known C2",
+      "severity": "Critical",
+      "alertCategory": "Anomaly",
+      "alertInfo": {
+        "description": "Pod payments-api-7f6 in cluster prod-eks-1 contacted 198.51.100.7:443, a known C2 endpoint."
+      },
+      "alertModel": {
+        "mitre": {
+          "techniqueId": "T1071.001",
+          "techniqueName": "Application Layer Protocol: Web Protocols"
+        }
+      }
+    },
+    {
+      "alertId": 100004,
+      "alertName": "IAM access key created and used within 60s from new host",
+      "severity": "High",
+      "alertCategory": "CloudActivity",
+      "alertInfo": {
+        "description": "Access key created for IAM user backup-svc in account 123456789012 and used from a host not seen before."
+      },
+      "alertModel": {
+        "mitre": {
+          "techniqueId": "T1098.001",
+          "techniqueName": "Additional Cloud Credentials"
+        }
+      }
+    },
+    {
+      "alertId": 100005,
+      "alertName": "Cryptominer process detected on production host",
+      "severity": "Critical",
+      "alertCategory": "Anomaly",
+      "alertInfo": {
+        "description": "Process xmrig observed on host i-0abcd1234 in account 123456789012."
+      },
+      "alertModel": {
+        "mitre": {
+          "techniqueId": "T1496",
+          "techniqueName": "Resource Hijacking"
+        }
+      }
+    },
+    {
+      "alertId": 100006,
+      "alertName": "GuardDuty: UnauthorizedAccess via Tor exit node",
+      "severity": "High",
+      "alertCategory": "CloudActivity",
+      "alertInfo": {
+        "description": "Console login from Tor exit node 198.51.100.99 for user bob@acme.example.com."
+      },
+      "alertModel": {
+        "mitre": {
+          "techniqueId": "T1090.003",
+          "techniqueName": "Proxy: Multi-hop Proxy"
+        }
+      }
+    }
+  ]
+}
