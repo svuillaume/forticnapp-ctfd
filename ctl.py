@@ -203,7 +203,7 @@ HINTS = {
         f"  4. Then choose {BOLD}option 2{RESET} to start the trigger service"
     ),
     "2": f"\n{CYAN}Open{RESET} {BOLD}http://localhost:8000{RESET}",
-    "3": f"\n{CYAN}Open{RESET} {BOLD}https://your-domain.duckdns.org{RESET}",
+    "3": f"\n{CYAN}Open{RESET} {BOLD}https://your-domain.duckdns.org:4443{RESET}",
     "7": f"\n{CYAN}Challenges loaded — click{RESET} {BOLD}Start Challenges{RESET} on the home page",
     "8": f"\n{CYAN}Challenges loaded — click{RESET} {BOLD}Start Challenges{RESET} on the home page",
 }

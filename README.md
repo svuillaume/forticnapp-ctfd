@@ -35,7 +35,7 @@ and map compliance violations — then submit `FLAG{...}` answers on a live lead
 ```
 Browser
   │
-  │  https://your-domain:443        (CTFd UI)
+  │  https://your-domain:4443       (CTFd UI)
   │  https://your-domain:5555       (Trigger API)
   │
   ▼
@@ -71,7 +71,7 @@ Browser
 ## Prerequisites
 
 - **Docker** and **Docker Compose v2** (`docker compose version`)
-- **Ports 80, 443, 5555** available for Caddy HTTPS (or just 8000 for HTTP-only)
+- **Ports 80, 4443, 5555** available for Caddy HTTPS (or just 8000 for HTTP-only)
 - A **DuckDNS token** and subdomain (for HTTPS — free at [duckdns.org](https://www.duckdns.org))
 - A **FortiCNAPP API key** (dynamic mode only)
 
@@ -113,7 +113,7 @@ docker compose up -d db cache ctfd trigger caddy
 
 Wait ~15 seconds, then open:
 - **HTTP**: `http://localhost:8000`
-- **HTTPS**: `https://your-domain.duckdns.org`
+- **HTTPS**: `https://your-domain.duckdns.org:4443`
 
 ### 3 — Complete the CTFd setup wizard
 
@@ -243,7 +243,7 @@ DUCKDNS_TOKEN=your-token-here
 Update `caddy/Caddyfile` if you are using a different domain:
 
 ```
-samvblogs.duckdns.org {          # ← change this
+samvblogs.duckdns.org:4443 {    # ← change this
     tls { dns duckdns {env.DUCKDNS_TOKEN} }
     reverse_proxy ctfd:8000
 }

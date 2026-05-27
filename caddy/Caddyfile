@@ -6,12 +6,12 @@
     admin 0.0.0.0:2019
 }
 
-# ── CTFd — HTTPS on standard port 443 ────────────────────────────────────────
-samvblogs.duckdns.org {
+# ── CTFd — HTTPS on port 4443 ────────────────────────────────────────────────
+samvblogs.duckdns.org:4443 {
 
     # TLS via Let's Encrypt DNS-01 challenge (DuckDNS).
     # Caddy calls the DuckDNS API to create the _acme-challenge TXT record.
-    # No port 80/443 inbound from internet needed for cert issuance.
+    # No port 80/4443 inbound from internet needed for cert issuance.
     tls {
         dns duckdns {env.DUCKDNS_TOKEN}
     }

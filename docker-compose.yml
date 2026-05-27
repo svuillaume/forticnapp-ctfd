@@ -176,7 +176,7 @@ services:
     restart: unless-stopped
     ports:
       - "80:80"      # HTTP → HTTPS redirect
-      - "443:443"    # CTFd HTTPS
+      - "4443:4443"  # CTFd HTTPS
       - "5555:5555"  # Trigger service HTTPS
     environment:
       DUCKDNS_TOKEN: ${DUCKDNS_TOKEN}
