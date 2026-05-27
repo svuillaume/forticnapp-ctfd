@@ -1,0 +1,177 @@
+---
+challenges:
+
+- name: "Shadow MCP — identify the impostor"
+  value: 200
+  type: standard
+  state: visible
+  description: |
+    ## Scenario
+    FortiCNAPP raised 23 **Agentless Shadow MCP (Containers)** alerts. A container
+    image is running on an internet-exposed EC2 instance (`3.96.147.26`) that was
+    **not approved** by your security team — it wasn't in the software catalog and
+    is listening on port 8000.
+
+    FortiGuard threat intelligence has tagged the **host** as:
+    - `FortiGuard Indicator`
+    - `Malicious`
+    - `VirusTotal Indicator`
+
+    ## Question
+    Navigate to **FortiCNAPP → Alerts → Agentless Shadow MCP (Containers)**.
+    Open the first High-severity alert. Under **PolicyPlatform_Images**, what is
+    the **Docker image repository** of the unauthorized MCP container?
+
+    > It is a public Docker Hub image with the format `docker.io/library/<name>`
+
+    ## Flag format
+    `FLAG{image-name}` — just the image name, no registry prefix or tag.
+  flags:
+  - type: static
+    data: case_insensitive
+    content: 'FLAG{weather-mcp}'
+  hints:
+  - content: Look inside the alert's entityMap → PolicyPlatform_Images section.
+    cost: 15
+  - content: "The image name describes what kind of MCP server it is (hint: meteorology)."
+    cost: 30
+  tags:
+  - value: forticnapp
+  - value: container-security
+  - value: shadow-mcp
+  - value: threat-intel
+
+- name: "MCP server fingerprint"
+  value: 250
+  type: standard
+  state: visible
+  description: |
+    ## Scenario
+    The Shadow MCP container is running alongside a **custom demo container** built
+    by an internal team member. FortiCNAPP's agentless scanner identified both images
+    on the same EC2 host.
+
+    One of the images was pushed to Docker Hub under a **personal account** —
+    not the official `docker.io/library/` namespace.
+
+    ## Question
+    From the same **Agentless Shadow MCP** alert, look at **all** images listed
+    under `PolicyPlatform_Images`. What is the **full Docker image repository path**
+    of the non-library (personal account) image?
+
+    > Format: `docker.io/<username>/<image-name>`
+
+    ## Flag format
+    `FLAG{username/image-name}` — just the `user/image` part.
+  flags:
+  - type: static
+    data: case_insensitive
+    content: 'FLAG{benoitbmtl/mcp-demo}'
+  hints:
+  - content: There are two images in the alert. One is library/, one is a personal account.
+    cost: 15
+  - content: The username is a Montreal-based developer's GitHub handle.
+    cost: 30
+  tags:
+  - value: forticnapp
+  - value: container-security
+  - value: shadow-mcp
+
+- name: "Crypto container caught"
+  value: 150
+  type: standard
+  state: visible
+  description: |
+    ## Scenario
+    FortiCNAPP's host agent detected the following process running inside a container
+    on multiple compromised `*-watchtower` hosts:
+
+    ```
+    /usr/bin/nc.openbsd nc -w 3 xmr-eu1.nanopool.org 8888
+    ```
+
+    The container was running as **root**, with no resource limits set.
+
+    ## Question
+    The container image used the official Docker Hub naming convention
+    `docker.io/library/<name>`. Based on the naming of the compromised hosts
+    (`*-watchtower`) and FortiCNAPP's container inventory, what is the
+    **container image name** running on those hosts?
+
+    > Navigate to **Investigate → Agent Data → Containers** and filter by hostname
+    > pattern `*watchtower*`.
+
+    ## Flag format
+    `FLAG{image-name}` — just the image name, no tag.
+  flags:
+  - type: static
+    data: case_insensitive
+    content: 'FLAG{forticnapp-blog}'
+  hints:
+  - content: >
+      The watchtower hosts are running a web-facing container alongside the miner.
+      The container name appears in the agent-collected inventory.
+    cost: 20
+  - content: The container name matches a FortiCNAPP demo blog application.
+    cost: 35
+  tags:
+  - value: forticnapp
+  - value: container-security
+  - value: cryptomining
+
+- name: "Container port exposure"
+  value: 150
+  type: standard
+  state: visible
+  description: |
+    ## Scenario
+    The Shadow MCP container (`weather-mcp`) is internet-exposed. FortiCNAPP's
+    agentless scanning captured the container's **port mapping** from the Docker
+    host's network namespace.
+
+    ## Question
+    On what **host port** is the `weather-mcp` container listening?
+
+    > Check the `LISTEN_PORT_MAP` field in FortiCNAPP's container inventory for
+    > the host `ip-172-31-19-180` (external IP: `3.96.147.26`).
+
+    ## Flag format
+    `FLAG{NNNN}` — the port number.
+  flags:
+  - type: static
+    data: case_insensitive
+    content: 'FLAG{8000}'
+  hints:
+  - content: MCP servers typically run on a well-known port in the 8000 range.
+    cost: 10
+  tags:
+  - value: forticnapp
+  - value: container-security
+  - value: network
+
+- name: "What is a Shadow MCP?"
+  value: 75
+  type: standard
+  state: visible
+  description: |
+    ## Scenario
+    FortiCNAPP introduced **Agentless Shadow MCP detection** to identify
+    unauthorized Model Context Protocol servers running in your cloud environment.
+
+    ## Question
+    In the context of FortiCNAPP's Shadow MCP detection, what does **MCP** stand for?
+
+    ## Flag format
+    `FLAG{Three Word Answer}` — capitalize each word.
+  flags:
+  - type: static
+    data: case_insensitive
+    content: 'FLAG{Model Context Protocol}'
+  hints:
+  - content: It's an AI/LLM integration standard introduced by Anthropic in 2024.
+    cost: 10
+  tags:
+  - value: forticnapp
+  - value: container-security
+  - value: shadow-mcp
+  - value: knowledge

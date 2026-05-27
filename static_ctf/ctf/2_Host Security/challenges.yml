@@ -1,0 +1,167 @@
+---
+challenges:
+
+- name: "Top of the vuln pile"
+  value: 100
+  type: standard
+  state: visible
+  description: |
+    ## Scenario
+    The CISO wants to present the **single most vulnerable host** to the board next week.
+    The criteria: the host with the **most Critical + High, Fixable, Active** vulnerabilities.
+
+    ## Question
+    Navigate to **FortiCNAPP → Vulnerabilities → Hosts**. Apply these filters:
+    - Severity: **Critical** and **High**
+    - Fix Available: **Yes**
+    - Package Status: **Active**
+
+    Sort by vulnerability count (descending). What is the **hostname** of the top result?
+
+    > The hostname will be a private DNS name or EC2 instance hostname.
+
+    ## Flag format
+    `FLAG{hostname}` — e.g. `FLAG{ip-10-0-1-5.ca-central-1.compute.internal}`
+  flags:
+  - type: regex
+    content: 'FLAG\{ip-[\d-]+\.[\w.-]+\.compute\.internal\}'
+  hints:
+  - content: The hostname follows the AWS private DNS pattern ip-W-X-Y-Z.region.compute.internal
+    cost: 15
+  tags:
+  - value: forticnapp
+  - value: host-security
+  - value: vulnerability
+
+- name: "Kernel panic"
+  value: 150
+  type: standard
+  state: visible
+  description: |
+    ## Scenario
+    FortiCNAPP flagged a **Critical** vulnerability in the `linux-image` / `kernel6.12`
+    package family on multiple EC2 instances in `ca-central-1`. The finding includes
+    an available fix.
+
+    This CVE was assigned in **2026** and relates to a **privilege escalation** vector
+    in the Linux kernel's netfilter subsystem.
+
+    ## Question
+    Navigate to **FortiCNAPP → Vulnerabilities → Hosts**. Filter by:
+    - Package name contains: `kernel6.12`
+    - Severity: **Critical**
+
+    What is the **CVE identifier** for the most recently assigned Critical CVE
+    in the `kernel6.12` package?
+
+    ## Flag format
+    `FLAG{CVE-YYYY-NNNNN}`
+  flags:
+  - type: regex
+    content: 'FLAG\{CVE-20\d\d-\d{4,7}\}'
+  hints:
+  - content: Filter the Host Vulnerabilities view by the kernel6.12 package name.
+    cost: 15
+  - content: Look for Critical severity CVEs assigned in 2026.
+    cost: 25
+  tags:
+  - value: forticnapp
+  - value: host-security
+  - value: cve
+  - value: kernel
+
+- name: "Fix me first"
+  value: 200
+  type: standard
+  state: visible
+  description: |
+    ## Scenario
+    Your team uses FortiCNAPP's **vulnerability prioritization** to decide what to
+    patch first. You need to find a **Critical** vulnerability that:
+    1. Has a fix available (`fix_available = 1`)
+    2. Affects the `aws-cfn-bootstrap` package (AWS CloudFormation helper)
+    3. Was first published in **2025**
+
+    ## Question
+    What is the **CVE identifier** for the Critical vulnerability in `aws-cfn-bootstrap`?
+
+    > Navigate to **Vulnerabilities → Hosts**, filter by package `aws-cfn-bootstrap`,
+    > severity Critical.
+
+    ## Flag format
+    `FLAG{CVE-YYYY-NNNNN}`
+  flags:
+  - type: regex
+    content: 'FLAG\{CVE-2025-\d{4,7}\}'
+  hints:
+  - content: The package name is aws-cfn-bootstrap — search for it in the Host Vulnerabilities filter.
+    cost: 15
+  tags:
+  - value: forticnapp
+  - value: host-security
+  - value: cve
+  - value: aws
+
+- name: "CVSS score decoder"
+  value: 150
+  type: standard
+  state: visible
+  description: |
+    ## Scenario
+    FortiCNAPP surfaces **CVSS scores** alongside each vulnerability to help
+    prioritize remediation. A kernel vulnerability has been flagged with a
+    CVSS v3 base score that puts it firmly in the **Critical** range.
+
+    ## Question
+    What is the **minimum CVSS v3 base score** required for FortiCNAPP to
+    classify a vulnerability as **Critical** severity?
+
+    > This is a knowledge question — no console navigation needed.
+    > Think about the standard CVSS v3 scoring ranges.
+
+    ## Flag format
+    `FLAG{X.X}` — the decimal threshold score.
+  flags:
+  - type: static
+    data: case_insensitive
+    content: 'FLAG{9.0}'
+  hints:
+  - content: CVSS v3 ranges — Low 0.1-3.9, Medium 4.0-6.9, High 7.0-8.9, Critical ?
+    cost: 10
+  tags:
+  - value: forticnapp
+  - value: host-security
+  - value: cvss
+
+- name: "Agent vs Agentless"
+  value: 100
+  type: standard
+  state: visible
+  description: |
+    ## Scenario
+    Your team is debating whether to use the **Lacework Agent** or **Agentless
+    Workload Scanning** for host vulnerability detection.
+
+    FortiCNAPP's agentless scanning reads the disk snapshot of a running instance —
+    no software installed on the host.
+
+    ## Question
+    When FortiCNAPP performs **Agentless Workload Scanning** on an AWS EC2 instance,
+    what AWS service does it use to take a read-only snapshot of the instance disk
+    **without requiring any agent or SSH access**?
+
+    ## Flag format
+    `FLAG{ServiceName}` — the AWS service name, no spaces.
+  flags:
+  - type: static
+    data: case_insensitive
+    content: 'FLAG{EBSSnapshot}'
+  hints:
+  - content: Think about how you would copy an EC2 disk non-intrusively in AWS.
+    cost: 10
+  - content: Elastic Block Store snapshots allow read-only disk access without touching the running instance.
+    cost: 20
+  tags:
+  - value: forticnapp
+  - value: host-security
+  - value: agentless

@@ -93,28 +93,44 @@ services:
     networks:
       - ctf-net
 
+  # ── Dynamic bridge: pulls live findings from FortiCNAPP API ─────────────
   bridge:
     build: ./forticnapp_ctf_api
     container_name: forticnapp-ctf-bridge
-    # This is a one-shot job (no restart). Run with:
-    #   docker compose run --rm bridge
+    # One-shot job. Run with:  docker compose run --rm bridge
     restart: "no"
     environment:
-      # FortiCNAPP / Lacework API
       - FORTICNAPP_ACCOUNT=${FORTICNAPP_ACCOUNT}
       - FORTICNAPP_SUBACCOUNT=${FORTICNAPP_SUBACCOUNT:-}
       - FORTICNAPP_API_KEY_ID=${FORTICNAPP_API_KEY_ID}
       - FORTICNAPP_API_SECRET=${FORTICNAPP_API_SECRET}
-      # CTFd target
       - CTFD_API_URL=http://ctfd:8000
       - CTFD_ADMIN_TOKEN=${CTFD_ADMIN_TOKEN}
-      # Behaviour
       - MOCK_MODE=${MOCK_MODE:-false}
       - SANITIZE=${SANITIZE:-true}
       - LOOKBACK_HOURS=${LOOKBACK_HOURS:-72}
       - MAX_CHALLENGES_PER_CATEGORY=${MAX_CHALLENGES_PER_CATEGORY:-5}
     volumes:
       - ./sample_data:/app/sample_data:ro
+    depends_on:
+      - ctfd
+    networks:
+      - ctf-net
+
+  # ── Static bridge: pushes pre-authored YAML challenges (no live API needed)
+  bridge-static:
+    build: ./static_ctf
+    container_name: forticnapp-ctf-bridge-static
+    # One-shot job. Run with:  docker compose run --rm bridge-static
+    restart: "no"
+    environment:
+      - CTFD_API_URL=http://ctfd:8000
+      - CTFD_ADMIN_TOKEN=${CTFD_ADMIN_TOKEN}
+      - FORTICNAPP_ACCOUNT=${FORTICNAPP_ACCOUNT:-forticnapp-demo}
+      - FORTICNAPP_SUBACCOUNT=${FORTICNAPP_SUBACCOUNT:-}
+      - CTF_NAME=${CTF_NAME:-FortiCNAPP Cloud Defender Challenge}
+      - STATIC_SCHEMA_DIR=/app/ctf
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
     depends_on:
       - ctfd
     networks:

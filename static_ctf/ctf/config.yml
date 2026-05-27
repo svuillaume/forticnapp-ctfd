@@ -1,0 +1,15 @@
+---
+config:
+  ctf_theme: core
+  user_mode: users
+  account_visibility: public
+  score_visibility: public
+  registration_visibility: public
+  paused: 0
+  ctf_name: "{{ CONFIG_CTF_NAME }}"
+  ctf_description: >
+    You are the on-call SOC analyst at Acme Corp.
+    FortiCNAPP just lit up across Alert Triage, Host Security,
+    Container Security, and Cloud Compliance.
+    Your job: triage, investigate, and capture the flags.
+    Powered by FortiCNAPP on {{ CONFIG_ACCOUNT }}.
