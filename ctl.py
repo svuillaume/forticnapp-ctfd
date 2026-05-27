@@ -148,21 +148,22 @@ def setup_wizard(env: dict) -> dict:
         default=env.get("CTFD_ADMIN_TOKEN", ""), secret=True)
 
     # ── Section 2: HTTPS ───────────────────────────────────────────────────────
-    print(f"\n{BOLD}2 / 3  HTTPS  (skip if running HTTP only){RESET}")
+    print(f"\n{BOLD}2 / 3  HTTPS{RESET}")
+    print(f"  {DIM}HTTP traffic on port 80 is automatically redirected to HTTPS by Caddy.{RESET}")
 
-    print(f"  {DIM}Your DuckDNS subdomain — e.g. samvblogs.duckdns.org{RESET}")
+    print(f"\n  {DIM}Your DuckDNS subdomain — e.g. samvblogs.duckdns.org{RESET}")
     changes["FQDN"] = prompt(
         "FQDN  (your public domain name)",
         default=env.get("FQDN", ""))
 
-    print(f"  {DIM}TCP port for CTFd HTTPS — 443 is standard, 4443 avoids needing root{RESET}")
+    print(f"  {DIM}HTTPS TCP port — 443 is the standard HTTPS port{RESET}")
     changes["HTTPS_PORT"] = prompt(
-        "HTTPS port             (443 or 4443)",
-        default=env.get("HTTPS_PORT") or "4443")
+        "HTTPS TCP port         (default 443)",
+        default=env.get("HTTPS_PORT") or "443")
 
     print(f"  {DIM}DuckDNS token — log in at duckdns.org, your token is at the top of the page{RESET}")
     changes["DUCKDNS_TOKEN"] = prompt(
-        "DuckDNS token          (for Let's Encrypt cert — leave blank to skip HTTPS)",
+        "DuckDNS token          (for Let's Encrypt cert)",
         default=env.get("DUCKDNS_TOKEN", ""), secret=True)
 
     # ── Section 3: FortiCNAPP API ──────────────────────────────────────────────
@@ -226,21 +227,21 @@ def get_status() -> str:
 
 def build_menu(env: dict) -> str:
     fqdn       = env.get("FQDN", "")
-    https_port = env.get("HTTPS_PORT") or "4443"
+    https_port = env.get("HTTPS_PORT") or "443"
     token_ok   = bool(env.get("CTFD_ADMIN_TOKEN"))
     cert_found = has_cert(fqdn) if fqdn else False
-    can_https  = bool(fqdn and token_ok and (cert_found or env.get("DUCKDNS_TOKEN")))
+    ready      = bool(fqdn and token_ok and (cert_found or env.get("DUCKDNS_TOKEN")))
 
     url = (f"https://{fqdn}:{https_port}" if https_port != "443" else f"https://{fqdn}") if fqdn else ""
 
-    if can_https and cert_found:
-        start_info = f"{DIM}→ {url}{RESET}  {GREEN}🔒 cert found{RESET}"
-    elif can_https:
-        start_info = f"{DIM}→ {url}{RESET}  {YELLOW}(cert will be obtained on first start){RESET}"
-    elif token_ok:
-        start_info = f"{DIM}→ http://localhost:8000{RESET}  {YELLOW}(HTTPS not configured){RESET}"
+    if ready and cert_found:
+        start_info = f"{DIM}→ {url}{RESET}  {GREEN}🔒 cert ready{RESET}"
+    elif ready:
+        start_info = f"{DIM}→ {url}{RESET}  {YELLOW}cert will be obtained on first start{RESET}"
+    elif not token_ok:
+        start_info = f"{YELLOW}⚠  CTFD_ADMIN_TOKEN missing — press s{RESET}"
     else:
-        start_info = f"{YELLOW}⚠  configure .env first  (press s){RESET}"
+        start_info = f"{YELLOW}⚠  FQDN or DUCKDNS_TOKEN missing — press s{RESET}"
 
     return f"""
 {BOLD}{RED}╔══════════════════════════════════════════╗
@@ -319,27 +320,32 @@ def run(cmd: list[str]) -> bool:
 
 def start(env: dict) -> None:
     fqdn       = env.get("FQDN", "")
-    https_port = env.get("HTTPS_PORT") or "4443"
+    https_port = env.get("HTTPS_PORT") or "443"
     token_ok   = bool(env.get("CTFD_ADMIN_TOKEN"))
 
     cert_found = has_cert(fqdn) if fqdn else False
-    use_https  = bool(fqdn and token_ok and (cert_found or env.get("DUCKDNS_TOKEN")))
+    ready      = bool(fqdn and token_ok and (cert_found or env.get("DUCKDNS_TOKEN")))
 
-    services = ["db", "cache", "ctfd", "trigger"] + (["caddy"] if use_https else [])
+    if not ready:
+        if not token_ok:
+            print(f"\n{RED}Cannot start — CTFD_ADMIN_TOKEN is missing.{RESET}")
+            print(f"{DIM}Press s to open the setup wizard and paste your admin token.{RESET}")
+        else:
+            print(f"\n{RED}Cannot start — FQDN or DUCKDNS_TOKEN is missing.{RESET}")
+            print(f"{DIM}Press s to open the setup wizard and configure HTTPS.{RESET}")
+        return
 
-    ok = run(["docker", "compose", "up", "-d"] + services)
+    ok = run(["docker", "compose", "up", "-d", "db", "cache", "ctfd", "trigger", "caddy"])
     if not ok:
         return   # Docker unavailable — error already printed by run()
 
     # Invalidate cert cache so next menu re-probes after Caddy may have obtained a cert
     invalidate_cert_cache()
 
-    if use_https:
-        url = f"https://{fqdn}:{https_port}" if https_port != "443" else f"https://{fqdn}"
-        src = "existing cert" if cert_found else "new cert — Caddy is obtaining it (~30 s)"
-        print(f"\n{CYAN}Open{RESET} {BOLD}{url}{RESET}  {DIM}({src}){RESET}")
-    else:
-        print(f"\n{CYAN}Open{RESET} {BOLD}http://localhost:8000{RESET}")
+    url = f"https://{fqdn}:{https_port}" if https_port != "443" else f"https://{fqdn}"
+    src = "existing cert" if cert_found else "new cert — Caddy is obtaining it (~30 s)"
+    print(f"\n{CYAN}Open{RESET} {BOLD}{url}{RESET}  {DIM}({src}){RESET}")
+    print(f"{DIM}HTTP → HTTPS redirect is active on port 80.{RESET}")
 
 
 # ── Entry ──────────────────────────────────────────────────────────────────────

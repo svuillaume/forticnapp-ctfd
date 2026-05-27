@@ -176,11 +176,11 @@ services:
     restart: unless-stopped
     ports:
       - "80:80"
-      - "${HTTPS_PORT:-4443}:${HTTPS_PORT:-4443}"   # CTFd HTTPS
+      - "${HTTPS_PORT:-443}:${HTTPS_PORT:-443}"     # CTFd HTTPS
       - "5555:5555"                                  # Trigger service HTTPS
     environment:
       FQDN:          ${FQDN:-samvblogs.duckdns.org}
-      HTTPS_PORT:    ${HTTPS_PORT:-4443}
+      HTTPS_PORT:    ${HTTPS_PORT:-443}
       DUCKDNS_TOKEN: ${DUCKDNS_TOKEN}
     volumes:
       # NEVER delete caddy_data — Let's Encrypt rate-limits to 5 certs/domain/week

@@ -35,7 +35,7 @@ and map compliance violations — then submit `FLAG{...}` answers on a live lead
 ```
 Browser
   │
-  │  https://your-domain:4443       (CTFd UI)
+  │  https://your-domain             (CTFd UI, port 443)
   │  https://your-domain:5555       (Trigger API)
   │
   ▼
@@ -71,7 +71,7 @@ Browser
 ## Prerequisites
 
 - **Docker** and **Docker Compose v2** (`docker compose version`)
-- **Ports 80, 4443, 5555** available for Caddy HTTPS (or just 8000 for HTTP-only)
+- **Ports 80, 443, 5555** available (80 for HTTP→HTTPS redirect, 443 for CTFd, 5555 for Trigger)
 - A **DuckDNS token** and subdomain (for HTTPS — free at [duckdns.org](https://www.duckdns.org))
 - A **FortiCNAPP API key** (dynamic mode only)
 
@@ -94,7 +94,7 @@ The wizard walks through **3 sections**:
 | Section | What it asks |
 |---|---|
 | **CTFd internal** | DB passwords (default `root`/`root`), CTFd admin token |
-| **HTTPS** | Your FQDN, HTTPS port (default `4443`), DuckDNS token |
+| **HTTPS** | Your FQDN, HTTPS port (default `443`), DuckDNS token |
 | **FortiCNAPP API** | Account, Key ID, Secret — for Live CTF mode only |
 
 > The CTFd admin token does not exist yet at this point — leave it blank and fill it in after step 3.  
@@ -102,7 +102,7 @@ The wizard walks through **3 sections**:
 
 ### 2 — First boot
 
-Choose **option 1** (First boot) in the menu. This starts CTFd only.
+Run `ctl.py` → option **1** (START). CTFd starts without Caddy so you can complete the setup wizard.
 
 Open **http://localhost:8000** and complete the setup wizard:
 1. Enter your event name
@@ -110,17 +110,21 @@ Open **http://localhost:8000** and complete the setup wizard:
 3. Choose **Users** or **Teams** mode
 4. Click **Finish Setup**
 
+> `localhost:8000` is the direct CTFd port, bound to loopback only. It is used only for this one-time setup step — all public traffic goes through Caddy on port 443.
+
 ### 3 — Generate the admin API token
 
 **Admin Panel → Settings → Tokens → Generate**
 
 Copy the token (`ctfd_...`), then press **`s`** in the control script and paste it into **CTFd admin API token**.
 
-### 4 — Start
+### 4 — Start (HTTPS)
 
-Choose **option 1** again (START). The script automatically:
-- Uses **HTTPS** with Caddy if a cert exists or `DUCKDNS_TOKEN` is set
-- Falls back to **HTTP** on `localhost:8000` otherwise
+Choose **option 1** (START) again. Once FQDN, DUCKDNS_TOKEN, and CTFD_ADMIN_TOKEN are all set, the script starts the full stack including Caddy.
+
+- Caddy obtains a Let's Encrypt cert on first start (~30 s)
+- Port 80 automatically redirects HTTP → HTTPS
+- CTFd is served at `https://your-domain`
 
 ### 5 — Load challenges
 
@@ -214,7 +218,7 @@ DUCKDNS_TOKEN=your-token-here
 Update `caddy/Caddyfile` if you are using a different domain:
 
 ```
-samvblogs.duckdns.org:4443 {    # ← change this
+samvblogs.duckdns.org:443 {     # ← change this
     tls { dns duckdns {env.DUCKDNS_TOKEN} }
     reverse_proxy ctfd:8000
 }
@@ -241,15 +245,17 @@ Caddy fetches the certificate on first start (~30 seconds), then renews it autom
 ### Before the event (presenter setup, ~5 min)
 
 ```bash
-# 1. Start the stack
-docker compose up -d db cache ctfd trigger
+# 1. First boot (no Caddy) — CTFd setup wizard only
+docker compose up -d db cache ctfd
+#    Open http://localhost:8000 → create admin user, choose Users/Teams mode, Finish Setup
 
-# 2. Complete the CTFd setup wizard at http://localhost:8000
-#    → create admin user, choose Users/Teams mode, Finish Setup
-
-# 3. Generate admin token: Admin Panel → Settings → Tokens → Generate
+# 2. Generate admin token: Admin Panel → Settings → Tokens → Generate
 #    → paste into .env as CTFD_ADMIN_TOKEN=ctfd_...
 #    → docker compose restart trigger
+
+# 3. Start full stack with HTTPS
+docker compose up -d db cache ctfd trigger caddy
+#    Port 80 redirects to https://your-domain automatically
 
 # 4. Load challenges — either via home page cards, or:
 docker compose run --rm bridge-static   # CTF Lab
@@ -393,13 +399,13 @@ All flags are case-insensitive.
 ## Useful Commands
 
 ```bash
-# Start (HTTP only)
-docker compose up -d db cache ctfd trigger
-
-# Start (HTTPS)
+# Start full stack (HTTPS — recommended)
 docker compose up -d db cache ctfd trigger caddy
 
-# Stop Caddy only (revert to HTTP)
+# Start without Caddy (CTFd setup wizard only, localhost:8000)
+docker compose up -d db cache ctfd
+
+# Stop Caddy only
 docker compose stop caddy
 
 # Stop everything (keep data)
