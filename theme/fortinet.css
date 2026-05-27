@@ -1,265 +1,812 @@
 /*
- * FortiCNAPP CTF — Fortinet Brand Theme
- * Primary Red : #DA291C  (Pantone 485 C)
- * Black       : #000000  (Pantone Black 6 C)
- * White       : #FFFFFF
- * Dark surface: #1A1A1A
- * Mid surface : #2C2C2C
- * Subtle red  : #F5E6E5  (tint for backgrounds)
+ * FortiCNAPP CTF — FortiGuard Labs Dark Theme
+ * Inspired by: https://www.fortiguard.com/threatintel-search
+ *
+ * Palette
+ *   Background base  : #09111e  (near-black navy)
+ *   Background card  : #0e1929  (dark navy panel)
+ *   Background raised : #132033 (slightly lighter surface)
+ *   Border subtle    : #1a2d42
+ *   Border accent    : #DA291C (Fortinet red)
+ *   Text primary     : #e2eaf4
+ *   Text secondary   : #7a94ae
+ *   Red accent       : #DA291C (Pantone 485 C)
+ *   Red dark         : #b01e12
+ *   Red glow         : rgba(218,41,28,0.35)
+ *   Cyan (tech hint) : #00b0cc
  */
 
-/* ── Fonts ──────────────────────────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+/* ── Google Fonts ────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
+/* ── CSS Variables ───────────────────────────────────────── */
 :root {
-  --fort-red:       #DA291C;
-  --fort-red-dark:  #B01E12;
-  --fort-red-tint:  #F5E6E5;
-  --fort-black:     #000000;
-  --fort-dark:      #1A1A1A;
-  --fort-mid:       #2C2C2C;
-  --fort-gray:      #6B6B6B;
-  --fort-light:     #F4F4F4;
-  --fort-white:     #FFFFFF;
+  --bg-base:        #09111e;
+  --bg-card:        #0e1929;
+  --bg-surface:     #132033;
+  --bg-elevated:    #1a2d42;
+  --bg-input:       #0b1522;
+  --border-subtle:  #1a2d42;
+  --border-mid:     #243b52;
+  --border-red:     #DA291C;
+  --text-primary:   #e2eaf4;
+  --text-secondary: #7a94ae;
+  --text-muted:     #4a6278;
+  --red:            #DA291C;
+  --red-dark:       #b01e12;
+  --red-bright:     #ff3a2c;
+  --red-glow:       rgba(218, 41, 28, 0.35);
+  --red-subtle:     rgba(218, 41, 28, 0.08);
+  --red-tint:       rgba(218, 41, 28, 0.05);
+  --cyan:           #00b0cc;
+  --cyan-dim:       rgba(0, 176, 204, 0.15);
+  --green:          #1db954;
+  --green-dim:      rgba(29, 185, 84, 0.15);
+  --white:          #ffffff;
 }
 
-/* ── Base ───────────────────────────────────────────────── */
-body {
+/* ── Base / Reset ────────────────────────────────────────── */
+html, body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  background-color: var(--fort-light);
-  color: var(--fort-dark);
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  min-height: 100vh;
 }
 
-/* ── Navbar ─────────────────────────────────────────────── */
-.navbar {
-  background-color: var(--fort-black) !important;
-  border-bottom: 3px solid var(--fort-red);
-  padding: 0.6rem 1rem;
+body {
+  background-image:
+    radial-gradient(ellipse at 20% 0%, rgba(218,41,28,0.06) 0%, transparent 55%),
+    radial-gradient(ellipse at 80% 100%, rgba(0,176,204,0.04) 0%, transparent 50%),
+    linear-gradient(180deg, var(--bg-base) 0%, #060d17 100%);
+  background-attachment: fixed;
+}
+
+/* Subtle grid texture */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(26, 45, 66, 0.25) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(26, 45, 66, 0.25) 1px, transparent 1px);
+  background-size: 48px 48px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+#main-content, .container, .container-fluid {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Navbar ──────────────────────────────────────────────── */
+.navbar,
+nav.navbar {
+  background-color: rgba(6, 10, 18, 0.96) !important;
+  border-bottom: 1px solid var(--border-subtle);
+  box-shadow: 0 1px 0 var(--border-red), 0 4px 24px rgba(0,0,0,0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 0.5rem 1.25rem;
 }
 
 .navbar-brand {
-  color: var(--fort-white) !important;
+  color: var(--white) !important;
   font-weight: 700;
-  font-size: 1.2rem;
-  letter-spacing: 0.02em;
+  font-size: 1.1rem;
+  letter-spacing: 0.03em;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
+/* Fortinet shield icon inline */
 .navbar-brand::before {
   content: '';
   display: inline-block;
-  width: 22px;
-  height: 22px;
-  margin-right: 8px;
-  vertical-align: middle;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='4' fill='%23DA291C'/%3E%3Ctext x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Inter,sans-serif' font-weight='700' font-size='22' fill='white'%3EF%3C/text%3E%3C/svg%3E");
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 46'%3E%3Cpath d='M20 2 L38 10 L38 26 C38 35 30 42 20 44 C10 42 2 35 2 26 L2 10 Z' fill='%23DA291C'/%3E%3Ctext x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' font-family='Inter,sans-serif' font-weight='700' font-size='20' fill='white'%3EF%3C/text%3E%3C/svg%3E");
   background-size: contain;
   background-repeat: no-repeat;
 }
 
 .navbar-nav .nav-link {
-  color: rgba(255,255,255,0.85) !important;
+  color: rgba(226, 234, 244, 0.75) !important;
   font-weight: 500;
-  transition: color 0.15s;
+  font-size: 0.9rem;
+  letter-spacing: 0.02em;
+  padding: 0.5rem 0.9rem !important;
+  transition: color 0.2s, background-color 0.2s;
+  border-radius: 4px;
 }
 
-.navbar-nav .nav-link:hover,
-.navbar-nav .nav-link.active {
-  color: var(--fort-red) !important;
+.navbar-nav .nav-link:hover {
+  color: var(--white) !important;
+  background-color: rgba(218, 41, 28, 0.1);
 }
 
-/* ── Hero / Jumbotron ───────────────────────────────────── */
+.navbar-nav .nav-link.active,
+.navbar-nav .nav-item.active .nav-link {
+  color: var(--red) !important;
+  background-color: var(--red-subtle);
+}
+
+.navbar-toggler {
+  border-color: var(--border-mid) !important;
+}
+.navbar-toggler-icon {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' width='30' height='30'%3e%3cpath stroke='rgba(226,234,244,0.8)' stroke-width='2' stroke-linecap='round' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e") !important;
+}
+
+/* ── Hero / Jumbotron ────────────────────────────────────── */
 .jumbotron {
-  background: linear-gradient(135deg, var(--fort-black) 0%, var(--fort-mid) 100%);
-  color: var(--fort-white);
+  background: linear-gradient(135deg, #060c18 0%, #0d1929 50%, #0e1f30 100%);
+  color: var(--text-primary);
   border-radius: 0;
-  border-bottom: 4px solid var(--fort-red);
-  padding: 3rem 2rem;
+  border-bottom: 1px solid var(--border-subtle);
+  border-top: none;
+  box-shadow: inset 0 -1px 0 var(--border-red);
+  padding: 3.5rem 2rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.jumbotron::after {
+  content: '';
+  position: absolute;
+  top: -60px;
+  right: -60px;
+  width: 320px;
+  height: 320px;
+  background: radial-gradient(circle, rgba(218,41,28,0.08) 0%, transparent 65%);
+  pointer-events: none;
 }
 
 .jumbotron h1,
 .jumbotron .display-4 {
-  color: var(--fort-white);
+  color: var(--white);
   font-weight: 700;
+  letter-spacing: -0.01em;
 }
 
-.jumbotron p,
 .jumbotron .lead {
-  color: rgba(255,255,255,0.75);
+  color: var(--text-secondary);
+  font-size: 1rem;
 }
 
-/* ── Buttons ────────────────────────────────────────────── */
-.btn-primary {
-  background-color: var(--fort-red) !important;
-  border-color: var(--fort-red) !important;
-  color: var(--fort-white) !important;
-  font-weight: 600;
-  transition: background-color 0.15s, transform 0.1s;
-}
-
-.btn-primary:hover,
-.btn-primary:focus {
-  background-color: var(--fort-red-dark) !important;
-  border-color: var(--fort-red-dark) !important;
-  transform: translateY(-1px);
-}
-
-.btn-outline-primary {
-  color: var(--fort-red) !important;
-  border-color: var(--fort-red) !important;
-}
-
-.btn-outline-primary:hover {
-  background-color: var(--fort-red) !important;
-  color: var(--fort-white) !important;
-}
-
-.btn-success {
-  background-color: #1a7a3c !important;
-  border-color: #1a7a3c !important;
-}
-
-/* ── Cards ──────────────────────────────────────────────── */
+/* ── Cards ───────────────────────────────────────────────── */
 .card {
-  border: 1px solid #e0e0e0;
-  border-radius: 6px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-  transition: box-shadow 0.2s, transform 0.2s;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+  color: var(--text-primary);
+  transition: box-shadow 0.25s, border-color 0.25s, transform 0.2s;
 }
 
 .card:hover {
-  box-shadow: 0 4px 16px rgba(218,41,28,0.12);
+  border-color: var(--border-mid);
+  box-shadow: 0 0 0 1px var(--red-glow), 0 8px 32px rgba(218,41,28,0.12);
   transform: translateY(-2px);
 }
 
 .card-header {
-  background-color: var(--fort-black) !important;
-  color: var(--fort-white) !important;
+  background-color: var(--bg-surface) !important;
+  color: var(--text-primary) !important;
   font-weight: 600;
-  border-bottom: 2px solid var(--fort-red);
-}
-
-/* ── Category badge colours ─────────────────────────────── */
-.badge-category,
-.badge {
-  font-weight: 600;
-  letter-spacing: 0.03em;
-}
-
-/* Map CTFd category colours to Fortinet palette */
-[data-category="Alert Triage"]       { background-color: var(--fort-red)   !important; color: #fff !important; }
-[data-category="Host Security"]      { background-color: #8B0000            !important; color: #fff !important; }
-[data-category="Container Security"] { background-color: #2C2C2C            !important; color: #fff !important; }
-[data-category="Cloud Compliance"]   { background-color: #4A0000            !important; color: #fff !important; }
-
-/* ── Scoreboard / tables ────────────────────────────────── */
-.table thead th {
-  background-color: var(--fort-black);
-  color: var(--fort-white);
-  border-color: var(--fort-red);
-  font-weight: 600;
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
+  border-bottom: 1px solid var(--border-red) !important;
+  padding: 0.75rem 1rem;
+}
+
+.card-body {
+  color: var(--text-primary);
+}
+
+.card-footer {
+  background-color: var(--bg-surface) !important;
+  border-top: 1px solid var(--border-subtle) !important;
+  color: var(--text-secondary);
+}
+
+/* Challenge board cards */
+.challenge-button,
+.challenge-card {
+  background-color: var(--bg-card) !important;
+  border: 1px solid var(--border-subtle) !important;
+  color: var(--text-primary) !important;
+}
+
+.challenge-button:hover {
+  border-color: var(--red) !important;
+  box-shadow: 0 0 0 1px var(--red-glow), 0 4px 20px rgba(218,41,28,0.15) !important;
+}
+
+/* Solved challenge */
+.challenge-button.solved,
+.challenge-button[data-solved="true"] {
+  background-color: rgba(29, 185, 84, 0.06) !important;
+  border-color: rgba(29, 185, 84, 0.3) !important;
+}
+
+/* ── Category headers ────────────────────────────────────── */
+#challenge-list .category-header,
+.category-title {
+  background: linear-gradient(90deg, var(--bg-surface) 0%, transparent 100%);
+  color: var(--text-primary);
+  padding: 0.6rem 1rem;
+  font-weight: 700;
   font-size: 0.8rem;
-  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  border-left: 3px solid var(--red);
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: 0.5rem;
 }
 
-.table-striped tbody tr:nth-of-type(odd) {
-  background-color: var(--fort-red-tint);
+/* Category badge colours */
+[data-category="Alert Triage"]       { --cat-color: #DA291C; }
+[data-category="Host Security"]       { --cat-color: #c0392b; }
+[data-category="Container Security"]  { --cat-color: #00b0cc; }
+[data-category="Cloud Compliance"]    { --cat-color: #e67e22; }
+
+.badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 0.3em 0.7em;
 }
 
-.table tbody tr:hover {
-  background-color: rgba(218,41,28,0.08) !important;
+/* ── Buttons ─────────────────────────────────────────────── */
+.btn-primary {
+  background-color: var(--red) !important;
+  border-color: var(--red) !important;
+  color: var(--white) !important;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  box-shadow: 0 0 12px rgba(218,41,28,0.3);
+  transition: background-color 0.2s, box-shadow 0.2s, transform 0.15s;
 }
 
-/* Rank #1 highlight */
-.table tbody tr:first-child td {
-  font-weight: 700;
-  color: var(--fort-red);
+.btn-primary:hover,
+.btn-primary:focus {
+  background-color: var(--red-bright) !important;
+  border-color: var(--red-bright) !important;
+  box-shadow: 0 0 20px rgba(218,41,28,0.55) !important;
+  transform: translateY(-1px);
 }
 
-/* ── Scoreboard graph ───────────────────────────────────── */
-.ct-series-a .ct-line,
-.ct-series-a .ct-point {
-  stroke: var(--fort-red) !important;
+.btn-outline-primary {
+  color: var(--red) !important;
+  border-color: var(--red) !important;
+  background: transparent !important;
+}
+.btn-outline-primary:hover {
+  background-color: var(--red) !important;
+  color: var(--white) !important;
+  box-shadow: 0 0 14px rgba(218,41,28,0.4) !important;
 }
 
-/* ── Challenge modal / flags ────────────────────────────── */
-.challenge-window .modal-header {
-  background-color: var(--fort-black);
-  color: var(--fort-white);
-  border-bottom: 3px solid var(--fort-red);
+.btn-secondary {
+  background-color: var(--bg-elevated) !important;
+  border-color: var(--border-mid) !important;
+  color: var(--text-primary) !important;
+}
+.btn-secondary:hover {
+  background-color: var(--bg-elevated) !important;
+  border-color: var(--text-secondary) !important;
 }
 
-.challenge-window .modal-title {
-  font-weight: 700;
+.btn-success {
+  background-color: #18794e !important;
+  border-color: #18794e !important;
+  color: #fff !important;
 }
 
-.challenge-window .modal-footer .btn-primary {
-  min-width: 120px;
+.btn-danger {
+  background-color: var(--red-dark) !important;
+  border-color: var(--red-dark) !important;
 }
 
-/* Flag input */
+.btn-info {
+  background-color: #0e6e7c !important;
+  border-color: #0e6e7c !important;
+  color: #fff !important;
+}
+
+/* ── Forms / Inputs ──────────────────────────────────────── */
+.form-control,
+.form-select,
+input[type="text"],
+input[type="email"],
+input[type="password"],
+textarea {
+  background-color: var(--bg-input) !important;
+  border: 1px solid var(--border-mid) !important;
+  color: var(--text-primary) !important;
+  border-radius: 6px;
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-size: 0.9rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.form-control:focus,
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus {
+  border-color: var(--red) !important;
+  box-shadow: 0 0 0 3px rgba(218,41,28,0.2), 0 0 12px rgba(218,41,28,0.1) !important;
+  outline: none;
+  background-color: var(--bg-input) !important;
+}
+
+.form-control::placeholder {
+  color: var(--text-muted) !important;
+}
+
+label,
+.form-label {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+/* Flag submission input */
 #answer-input,
 input[name="submission"] {
-  border: 2px solid #ccc;
-  font-family: 'Courier New', monospace;
+  border: 1px solid var(--border-mid) !important;
+  background-color: var(--bg-input) !important;
+  color: #7affa0 !important;
+  font-family: 'JetBrains Mono', monospace !important;
   font-size: 1rem;
-  transition: border-color 0.15s;
+  letter-spacing: 0.04em;
 }
 
 #answer-input:focus,
 input[name="submission"]:focus {
-  border-color: var(--fort-red) !important;
-  box-shadow: 0 0 0 3px rgba(218,41,28,0.15) !important;
+  border-color: var(--red) !important;
+  box-shadow: 0 0 0 3px rgba(218,41,28,0.2), 0 0 16px rgba(218,41,28,0.12) !important;
+  color: #a0ffb8 !important;
 }
 
-/* Correct / incorrect flash */
+/* ── Tables ──────────────────────────────────────────────── */
+.table {
+  color: var(--text-primary) !important;
+  border-color: var(--border-subtle) !important;
+}
+
+.table thead th {
+  background-color: var(--bg-surface) !important;
+  color: var(--text-secondary) !important;
+  border-color: var(--border-mid) !important;
+  border-bottom: 1px solid var(--red) !important;
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.85rem 1rem;
+}
+
+.table tbody tr {
+  border-color: var(--border-subtle) !important;
+  transition: background-color 0.15s;
+}
+
+.table tbody td {
+  border-color: var(--border-subtle) !important;
+  background-color: transparent !important;
+  vertical-align: middle;
+}
+
+.table-striped tbody tr:nth-of-type(odd) td {
+  background-color: rgba(255,255,255,0.02) !important;
+}
+
+.table tbody tr:hover td {
+  background-color: rgba(218,41,28,0.06) !important;
+  cursor: default;
+}
+
+/* Rank #1 */
+.table tbody tr:first-child td {
+  font-weight: 700;
+  color: var(--red);
+}
+/* Rank #2 */
+.table tbody tr:nth-child(2) td {
+  color: #c0c8d4;
+}
+/* Rank #3 */
+.table tbody tr:nth-child(3) td {
+  color: #a0a8b4;
+}
+
+/* ── Scoreboard graph ────────────────────────────────────── */
+.ct-series-a .ct-line,
+.ct-series-a .ct-point {
+  stroke: var(--red) !important;
+}
+
+.ct-grid {
+  stroke: var(--border-subtle) !important;
+}
+
+.ct-label {
+  color: var(--text-muted) !important;
+  fill: var(--text-muted) !important;
+  font-size: 0.7rem !important;
+}
+
+/* ── Modal / Challenge window ────────────────────────────── */
+.modal-content {
+  background-color: var(--bg-card) !important;
+  border: 1px solid var(--border-mid) !important;
+  color: var(--text-primary) !important;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.8), 0 0 0 1px var(--red-glow) !important;
+  border-radius: 10px !important;
+}
+
+.modal-header {
+  background: linear-gradient(135deg, #0b1726 0%, #0f1f33 100%) !important;
+  border-bottom: 1px solid var(--border-red) !important;
+  padding: 1.2rem 1.5rem;
+}
+
+.modal-title {
+  color: var(--white) !important;
+  font-weight: 700;
+  font-size: 1.1rem;
+  letter-spacing: 0.01em;
+}
+
+.modal-body {
+  background-color: var(--bg-card) !important;
+  color: var(--text-primary) !important;
+  padding: 1.5rem;
+}
+
+/* Challenge description — markdown content */
+.modal-body h1, .modal-body h2, .modal-body h3 {
+  color: var(--white);
+  font-weight: 700;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 0.4rem;
+  margin-top: 1.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.modal-body h2 {
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--red);
+  border-bottom-color: var(--border-subtle);
+}
+
+.modal-body p {
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+.modal-body code,
+.modal-body pre {
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-size: 0.85rem;
+}
+
+.modal-body code {
+  background-color: var(--bg-surface);
+  color: #7affa0;
+  border: 1px solid var(--border-mid);
+  padding: 0.15em 0.5em;
+  border-radius: 4px;
+}
+
+.modal-body pre {
+  background-color: var(--bg-input);
+  border: 1px solid var(--border-mid);
+  border-left: 3px solid var(--red);
+  padding: 1rem;
+  border-radius: 6px;
+  color: #a8d8a8;
+  overflow-x: auto;
+}
+
+.modal-body blockquote {
+  border-left: 3px solid var(--cyan);
+  background-color: var(--cyan-dim);
+  padding: 0.75rem 1rem;
+  border-radius: 0 6px 6px 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.modal-body strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.modal-body ul li,
+.modal-body ol li {
+  color: var(--text-secondary);
+  margin-bottom: 0.3rem;
+}
+
+.modal-footer {
+  background-color: var(--bg-surface) !important;
+  border-top: 1px solid var(--border-subtle) !important;
+}
+
+/* Close button */
+.btn-close,
+.close {
+  filter: invert(1) brightness(0.7) !important;
+}
+.btn-close:hover,
+.close:hover {
+  filter: invert(1) brightness(1) !important;
+}
+
+/* ── Challenge value badge ───────────────────────────────── */
+.challenge-value {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--cyan);
+  font-weight: 700;
+  font-size: 1.4rem;
+}
+
+/* ── Hints ───────────────────────────────────────────────── */
+.hint-content {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-mid);
+  border-left: 3px solid var(--cyan);
+  padding: 0.75rem 1rem;
+  border-radius: 0 6px 6px 0;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+/* ── Alerts / Flash messages ─────────────────────────────── */
+.alert {
+  border-radius: 6px;
+  border-left-width: 4px;
+  font-size: 0.9rem;
+}
+
 .alert-success {
-  background-color: #e8f5e9;
-  border-left: 4px solid #2e7d32;
+  background-color: rgba(29, 185, 84, 0.1) !important;
+  border-color: rgba(29, 185, 84, 0.5) !important;
+  color: #5af59a !important;
 }
 
 .alert-danger {
-  background-color: #fdecea;
-  border-left: 4px solid var(--fort-red);
+  background-color: rgba(218, 41, 28, 0.1) !important;
+  border-color: rgba(218, 41, 28, 0.5) !important;
+  color: #ff8880 !important;
 }
 
-/* ── Sidebar / category list ────────────────────────────── */
-#challenge-list .category-header {
-  background-color: var(--fort-black);
-  color: var(--fort-white);
+.alert-warning {
+  background-color: rgba(230, 126, 34, 0.1) !important;
+  border-color: rgba(230, 126, 34, 0.5) !important;
+  color: #f5a623 !important;
+}
+
+.alert-info {
+  background-color: rgba(0, 176, 204, 0.1) !important;
+  border-color: rgba(0, 176, 204, 0.4) !important;
+  color: var(--cyan) !important;
+}
+
+/* ── Login / Register ────────────────────────────────────── */
+.container.pt-5 .card,
+.row.justify-content-center .card {
+  max-width: 420px;
+  border-top: 2px solid var(--red) !important;
+}
+
+/* ── Dropdowns ───────────────────────────────────────────── */
+.dropdown-menu {
+  background-color: var(--bg-surface) !important;
+  border: 1px solid var(--border-mid) !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6) !important;
+  border-radius: 6px;
+}
+
+.dropdown-item {
+  color: var(--text-primary) !important;
+  font-size: 0.9rem;
   padding: 0.5rem 1rem;
-  font-weight: 700;
-  font-size: 0.85rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  border-left: 4px solid var(--fort-red);
+  transition: background-color 0.15s;
 }
 
-/* ── Footer ─────────────────────────────────────────────── */
-footer {
-  background-color: var(--fort-black) !important;
-  color: rgba(255,255,255,0.5) !important;
-  border-top: 3px solid var(--fort-red);
-  font-size: 0.82rem;
+.dropdown-item:hover,
+.dropdown-item:focus {
+  background-color: var(--red-subtle) !important;
+  color: var(--white) !important;
+}
+
+.dropdown-divider {
+  border-color: var(--border-subtle) !important;
+}
+
+/* ── Progress / countdown ────────────────────────────────── */
+.progress {
+  background-color: var(--bg-elevated) !important;
+  border-radius: 4px;
+  height: 6px;
+}
+.progress-bar {
+  background-color: var(--red) !important;
+}
+
+/* ── Notifications ───────────────────────────────────────── */
+.toast,
+.notification {
+  background-color: var(--bg-surface) !important;
+  border: 1px solid var(--border-mid) !important;
+  color: var(--text-primary) !important;
+  border-left: 3px solid var(--red) !important;
+}
+
+/* ── Pagination ──────────────────────────────────────────── */
+.page-link {
+  background-color: var(--bg-card) !important;
+  border-color: var(--border-mid) !important;
+  color: var(--text-primary) !important;
+}
+.page-item.active .page-link {
+  background-color: var(--red) !important;
+  border-color: var(--red) !important;
+  color: #fff !important;
+}
+.page-link:hover {
+  background-color: var(--bg-elevated) !important;
+  border-color: var(--red) !important;
+  color: var(--white) !important;
+}
+
+/* ── Nav tabs ────────────────────────────────────────────── */
+.nav-tabs {
+  border-bottom: 1px solid var(--border-mid) !important;
+}
+.nav-tabs .nav-link {
+  color: var(--text-secondary) !important;
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 2px solid transparent !important;
+  font-size: 0.88rem;
+  font-weight: 500;
+  padding: 0.6rem 1rem;
+  transition: color 0.15s, border-color 0.15s;
+}
+.nav-tabs .nav-link:hover {
+  color: var(--text-primary) !important;
+  border-bottom-color: var(--border-mid) !important;
+}
+.nav-tabs .nav-link.active {
+  color: var(--red) !important;
+  border-bottom: 2px solid var(--red) !important;
+  background: transparent !important;
+}
+
+/* ── Footer ──────────────────────────────────────────────── */
+footer,
+#footer {
+  background-color: rgba(6, 10, 18, 0.98) !important;
+  border-top: 1px solid var(--border-subtle) !important;
+  color: var(--text-muted) !important;
+  font-size: 0.8rem;
+  box-shadow: 0 -1px 0 var(--border-red);
 }
 
 footer a {
-  color: var(--fort-red) !important;
+  color: var(--text-secondary) !important;
+  transition: color 0.15s;
+}
+footer a:hover {
+  color: var(--red) !important;
 }
 
-/* ── Notifications / toasts ─────────────────────────────── */
-.notification {
-  border-left: 4px solid var(--fort-red);
+/* ── Score chip (top-right user display) ─────────────────── */
+#user-score,
+.team-score {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  color: var(--cyan);
+  font-size: 0.9rem;
 }
 
-/* ── Login / register page ──────────────────────────────── */
-.login-card,
-.register-card {
-  border-top: 4px solid var(--fort-red);
+/* ── Solved / unsolved indicators ───────────────────────────*/
+.fa-check-circle,
+.text-success,
+.solved-flag {
+  color: var(--green) !important;
 }
 
-/* ── Scrollbar (WebKit) ─────────────────────────────────── */
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: var(--fort-light); }
-::-webkit-scrollbar-thumb { background: var(--fort-red); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--fort-red-dark); }
+/* ── List group ──────────────────────────────────────────── */
+.list-group-item {
+  background-color: var(--bg-card) !important;
+  border-color: var(--border-subtle) !important;
+  color: var(--text-primary) !important;
+}
+.list-group-item:hover {
+  background-color: var(--bg-surface) !important;
+}
+.list-group-item.active {
+  background-color: var(--red) !important;
+  border-color: var(--red) !important;
+  color: #fff !important;
+}
+
+/* ── Custom scrollbar (WebKit) ───────────────────────────── */
+::-webkit-scrollbar          { width: 6px; height: 6px; }
+::-webkit-scrollbar-track    { background: var(--bg-base); }
+::-webkit-scrollbar-thumb    { background: #1f3048; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--red); }
+
+/* ── Utility: glowing text for call-outs ─────────────────── */
+.text-danger { color: #ff6b6b !important; }
+.text-warning { color: #f5a623 !important; }
+.text-info    { color: var(--cyan) !important; }
+.text-primary { color: var(--red) !important; }
+.text-muted   { color: var(--text-muted) !important; }
+
+/* ── Threat-level visual (CTFd point pill) ───────────────── */
+.challenge-button .btn {
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: 0.03em;
+  padding: 0.25em 0.7em;
+}
+
+/* ── Countdown timer ─────────────────────────────────────── */
+#time-remaining,
+.countdown {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--cyan);
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+/* ── Section/page headings ───────────────────────────────── */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--text-primary);
+}
+
+h1 { font-weight: 700; }
+h2 { font-weight: 600; }
+
+/* ── CTFd scoreboard page adjustments ───────────────────── */
+#scoreboard table {
+  font-size: 0.9rem;
+}
+
+#scoreboard .team-name a {
+  color: var(--text-primary) !important;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+#scoreboard .team-name a:hover {
+  color: var(--red) !important;
+}
+
+/* ── Challenge category pill colours ────────────────────── */
+.badge.badge-primary,
+.badge.bg-primary   { background-color: var(--red) !important; }
+.badge.badge-info,
+.badge.bg-info      { background-color: #0e6e7c !important; }
+.badge.badge-success,
+.badge.bg-success   { background-color: #18794e !important; }
+.badge.badge-warning,
+.badge.bg-warning   { background-color: #7c4d0e !important; color: #fff !important; }
+.badge.badge-secondary,
+.badge.bg-secondary { background-color: var(--bg-elevated) !important; }
