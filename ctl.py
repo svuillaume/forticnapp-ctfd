@@ -266,31 +266,41 @@ def build_menu(env: dict) -> str:
 # ── Actions ────────────────────────────────────────────────────────────────────
 
 def check_docker() -> bool:
-    """Return True if Docker is reachable. Print fix instructions if not."""
+    """Return True if Docker is reachable. Offer to fix permission issues automatically."""
     try:
         r = subprocess.run(["docker", "info"], capture_output=True, timeout=5)
         if r.returncode == 0:
             return True
         err = r.stderr.decode()
     except FileNotFoundError:
-        err = "docker not found"
+        print(f"\n{RED}Docker not found.{RESET} Install Docker Desktop or Docker Engine first.\n")
+        return False
     except Exception as e:
-        err = str(e)
+        print(f"\n{RED}Docker not reachable:{RESET} {str(e)[:120]}\n")
+        return False
 
     if "permission denied" in err.lower():
-        print(f"""
-{RED}{BOLD}Docker permission denied.{RESET}
-Your user is not in the docker group. Fix with:
-
-  {BOLD}sudo usermod -aG docker $USER{RESET}
-  {BOLD}newgrp docker{RESET}          {DIM}# apply without logging out{RESET}
-
-Then re-run this script.
-""")
-    elif "not found" in err.lower():
-        print(f"\n{RED}Docker not found.{RESET} Install Docker Desktop or Docker Engine first.\n")
+        print(f"\n{RED}{BOLD}Docker permission denied{RESET} — your user is not in the docker group.")
+        ans = input(f"{BOLD}Fix it now? (requires sudo)  [Y/n]: {RESET}").strip().lower()
+        if ans in ("", "y", "yes"):
+            user = os.environ.get("USER") or os.environ.get("LOGNAME") or \
+                   subprocess.run(["whoami"], capture_output=True, text=True).stdout.strip()
+            print(f"\n{DIM}▶ sudo usermod -aG docker {user}{RESET}")
+            ret = subprocess.run(["sudo", "usermod", "-aG", "docker", user]).returncode
+            if ret != 0:
+                print(f"{RED}usermod failed — try manually:{RESET}  sudo usermod -aG docker {user}")
+                return False
+            print(f"\n{GREEN}✅ Added {user} to docker group.{RESET}")
+            print(f"{YELLOW}Applying group change and restarting script…{RESET}\n")
+            # Re-exec this script inside a new shell that has the docker group active
+            os.execvp("sg", ["sg", "docker", "-c",
+                             f"{sys.executable} {' '.join(sys.argv)}"])
+            # os.execvp replaces the process — nothing below runs
+        else:
+            print(f"{DIM}Skipped. Run manually:  sudo usermod -aG docker $USER && newgrp docker{RESET}")
     else:
         print(f"\n{RED}Docker not reachable:{RESET} {err[:120]}\n")
+
     return False
 
 
