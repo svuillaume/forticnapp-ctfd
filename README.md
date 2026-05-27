@@ -85,23 +85,21 @@ Browser
 cp .env.example .env
 ```
 
-Edit `.env` — fill in the required fields:
+Edit `.env` — only three values are needed to get started:
 
 ```dotenv
-# Required for CTFd to start
+# Required — any random string
 SECRET_KEY=any-strong-random-string
 
 # Fill in after step 3 (CTFd setup wizard)
 CTFD_ADMIN_TOKEN=
 
-# For HTTPS (optional — skip for HTTP-only)
+# For HTTPS only (optional)
 DUCKDNS_TOKEN=your-duckdns-token
-
-# For Live CTF mode (optional — skip for CTF Lab)
-FORTICNAPP_ACCOUNT=your-account
-FORTICNAPP_API_KEY_ID=YOUR_KEY_ID
-FORTICNAPP_API_SECRET=_your_secret
 ```
+
+> **FortiCNAPP API credentials** are entered directly in the web UI when you click
+> **Load Live Challenges** — no need to store them in `.env`.
 
 ### 2 — Start the stack
 
