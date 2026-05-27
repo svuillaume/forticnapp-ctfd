@@ -6,16 +6,16 @@ Maps FortiCNAPP findings to CTFd challenges.  Each generator emits a
 
 Categories
 ----------
-- Alert Triage          : real alerts -> "what is the MITRE technique?" etc.
-- Container Vulnerabilities : "find the CVE that... ", "what package is affected?"
-- Host Vulnerabilities  : same, but for hosts
-- Compliance            : "which CIS control is violated by this finding?"
+- Alert Triage          : real alerts -> MITRE technique, severity, category
+- Container Security    : "find the CVE that... ", "what package is affected?"
+- Host Security         : same, but for hosts
+- Cloud Compliance      : CIS control or service/severity questions
 
 Flag style
 ----------
 We follow the canonical `FLAG{...}` convention. Static flags are used for
 exact answers (a CVE ID, a control number); regex flags are used when
-several phrasings are acceptable (e.g. "T1190" or "T1190.001").
+several phrasings are acceptable.
 """
 
 from __future__ import annotations
@@ -79,6 +79,7 @@ class Challenge:
 # --- helpers ---------------------------------------------------------------
 
 _CVE_RE = re.compile(r"CVE-\d{4}-\d{4,7}", re.IGNORECASE)
+_CIS_CTRL_RE = re.compile(r"\b(\d+\.\d+(?:\.\d+)?)\b")
 
 
 def _first_cve(text: str) -> str | None:
@@ -98,21 +99,22 @@ def _safe_name(s: str, limit: int = 60) -> str:
     return s[:limit].rstrip(" .,:-")
 
 
+def _sev_points(sev: str) -> int:
+    return SEVERITY_POINTS.get(sev.capitalize(), 200)
+
+
 # --- alert -> challenge ---------------------------------------------------
 
 def _extract_mitre_technique(alert: dict[str, Any]) -> str | None:
-    """Extract the first MITRE technique ID (T####) from an alert's tagMetadata."""
-    # Primary: alertModel.mitre (older format)
+    """Extract the first MITRE technique ID (T####) from an alert."""
     mitre = (
         alert.get("alertModel", {}).get("mitre", {}).get("techniqueId")
         or (alert.get("alertInfo") or {}).get("mitreTechniqueId")
     )
     if mitre:
         return mitre.upper()
-    # Real API format: tagMetadata is a list of {tagMetadata: {id: "T1078", ...}}
     for entry in alert.get("tagMetadata", []):
         tid = (entry.get("tagMetadata") or {}).get("id", "")
-        # Technique IDs start with T and are followed by digits (not TA = tactic)
         if tid.startswith("T") and not tid.startswith("TA") and tid[1:].replace(".", "").isdigit():
             return tid.upper()
     return None
@@ -120,68 +122,125 @@ def _extract_mitre_technique(alert: dict[str, Any]) -> str | None:
 
 def alert_to_challenge(alert: dict[str, Any]) -> Challenge | None:
     """
-    Build a challenge where the flag is the MITRE technique ID surfaced in
-    the alert. Falls back to the alert source/category if no MITRE field is present.
+    Build an Alert Triage challenge from a FortiCNAPP alert.
+    Priority order:
+      1. MITRE technique ID  (most educational)
+      2. Alert severity
+      3. Alert category / source
     """
-    name = alert.get("alertName") or alert.get("name") or "Untitled Alert"
-    sev = alert.get("severity", "Medium").capitalize()
+    name = alert.get("alertName") or alert.get("name") or ""
+    if not name:
+        return None
+
+    sev_raw = alert.get("severity", "Medium")
+    sev = sev_raw.capitalize()
     info = alert.get("alertInfo") or {}
     description_text = info.get("description") or alert.get("description") or ""
+    derived = alert.get("derivedFields") or {}
 
-    # MITRE technique is the most fun puzzle target
+    # ── variant 1: MITRE technique ───────────────────────────────────────
     mitre = _extract_mitre_technique(alert)
     if mitre:
-        answer = mitre.upper()
-        question = (
-            "Based on the alert below, which MITRE ATT&CK "
-            "**Technique ID** (e.g. `T1078`) is FortiCNAPP attributing "
-            "this activity to?"
-        )
-        hints = [
-            "Look at the tagMetadata list in the alert — each entry has an id field.",
-            "Submit only the technique ID (not the tactic TA####), wrapped in FLAG{...}.",
-        ]
-    else:
-        # Fall back to derivedFields.category (real API shape) or alertCategory
-        derived = alert.get("derivedFields") or {}
-        category = (
-            alert.get("alertCategory")
-            or derived.get("category")
-            or derived.get("source")
-            or info.get("category")
-        )
-        if not category:
-            return None
-        answer = category
-        question = (
-            "FortiCNAPP categorises every alert. What is the **category** of "
-            "the alert below? (e.g. `Policy`, `Composite`, `CloudActivity`)"
-        )
-        hints = ["Look at the derivedFields.category field in the alert JSON."]
-
-    desc = f"""### Scenario
+        desc = f"""### Scenario
 {CATEGORY_NARRATIVE['Alert Triage']}
 
 ### Alert
 - **Name**: {name}
 - **Severity**: {sev}
-- **Summary**: {description_text or '_(no summary)_'}
+- **Summary**: {description_text or '_(no summary available)_'}
 
 ### Question
-{question}
+Based on this alert, which MITRE ATT&CK **Technique ID** is FortiCNAPP
+attributing this activity to? (e.g. `T1078`)
 
 ### Flag format
-`FLAG{{your_answer}}`
+`FLAG{{T####}}` — technique ID only, no tactic prefix.
 """
-    return Challenge(
-        name=f"Alert Triage: {_safe_name(name)}",
-        category="Alert Triage",
-        description=desc,
-        value=SEVERITY_POINTS.get(sev, 200),
-        flags=[Flag(content=_wrap_flag(answer), type="static")],
-        tags=["forticnapp", "alert", sev.lower()],
-        hints=hints,
+        return Challenge(
+            name=f"Alert Triage: {_safe_name(name)}",
+            category="Alert Triage",
+            description=desc,
+            value=_sev_points(sev),
+            flags=[Flag(content=_wrap_flag(mitre), type="static")],
+            tags=["forticnapp", "alert", "mitre", sev.lower(), "dynamic"],
+            hints=[
+                "Look at the MITRE ATT&CK tag on the FortiCNAPP alert — "
+                "technique IDs start with T followed by 4 digits.",
+                f"The technique is: {mitre}",
+            ],
+        )
+
+    # ── variant 2: severity as the answer ────────────────────────────────
+    # Ask the player to identify the severity — always available
+    category = (
+        alert.get("alertCategory")
+        or derived.get("category")
+        or derived.get("source")
+        or info.get("category")
+        or ""
     )
+
+    # Prefer severity question when we have a nice alert with description
+    if description_text and sev.lower() in ("critical", "high", "medium", "low"):
+        desc = f"""### Scenario
+{CATEGORY_NARRATIVE['Alert Triage']}
+
+### Alert
+- **Name**: {name}
+- **Category**: {category or '_(see alert)_'}
+- **Summary**: {description_text}
+
+### Question
+What **severity** did FortiCNAPP assign to this alert?
+(Answer: `Critical`, `High`, `Medium`, `Low`, or `Info`)
+
+### Flag format
+`FLAG{{Severity}}` — capitalise first letter only.
+"""
+        return Challenge(
+            name=f"Alert Triage: {_safe_name(name)} — severity",
+            category="Alert Triage",
+            description=desc,
+            value=_sev_points(sev),
+            flags=[Flag(content=_wrap_flag(sev), type="static", case_insensitive=True)],
+            tags=["forticnapp", "alert", "severity", sev.lower(), "dynamic"],
+            hints=[
+                "FortiCNAPP uses five severity levels: Critical, High, Medium, Low, Info.",
+                f"The severity is: {sev}",
+            ],
+        )
+
+    # ── variant 3: alert category ─────────────────────────────────────────
+    if category:
+        desc = f"""### Scenario
+{CATEGORY_NARRATIVE['Alert Triage']}
+
+### Alert
+- **Name**: {name}
+- **Severity**: {sev}
+- **Summary**: {description_text or '_(check FortiCNAPP for details)_'}
+
+### Question
+FortiCNAPP categorises every alert. What is the **category** of this alert?
+(e.g. `Policy`, `Composite`, `CloudActivity`, `User`)
+
+### Flag format
+`FLAG{{CategoryName}}`
+"""
+        return Challenge(
+            name=f"Alert Triage: {_safe_name(name)}",
+            category="Alert Triage",
+            description=desc,
+            value=_sev_points(sev),
+            flags=[Flag(content=_wrap_flag(category), type="static", case_insensitive=True)],
+            tags=["forticnapp", "alert", sev.lower(), "dynamic"],
+            hints=[
+                "Look at the derivedFields.category field in the FortiCNAPP alert.",
+                f"The category is: {category}",
+            ],
+        )
+
+    return None
 
 
 # --- container vuln -> challenge -----------------------------------------
@@ -192,11 +251,8 @@ def container_vuln_to_challenge(v: dict[str, Any]) -> Challenge | None:
         return None
     sev = v.get("severity", "High").capitalize()
     eval_ctx = v.get("evalCtx") or {}
-    # Prefer imageRepo (bare path, no tag); fall back to evalCtx.image_id only
-    # if needed. image_id often already includes the tag, which would double up.
     image_repo = v.get("imageRepo") or eval_ctx.get("image_id") or "unknown/image"
     image_tag = v.get("imageTag") or "latest"
-    # If image_repo already contains ":tag", drop it so we don't duplicate
     if ":" in image_repo and image_repo.rsplit(":", 1)[1] == image_tag:
         image_repo = image_repo.rsplit(":", 1)[0]
     pkg = (v.get("featureKey") or {}).get("name") or "unknown-package"
@@ -211,7 +267,7 @@ def container_vuln_to_challenge(v: dict[str, Any]) -> Challenge | None:
 - **Image**: `{image_repo}:{image_tag}`
 - **Package**: `{pkg} {pkg_ver}`
 - **Severity**: {sev}
-- **Fix available**: {"yes -> " + fixed_version if fix and fixed_version else "no"}
+- **Fix available**: {"yes → " + fixed_version if fix and fixed_version else "yes" if fix else "no"}
 
 ### Question
 What is the **CVE identifier** for this vulnerability? (Format: `CVE-YYYY-NNNN`)
@@ -223,10 +279,10 @@ What is the **CVE identifier** for this vulnerability? (Format: `CVE-YYYY-NNNN`)
         name=f"Container: {_safe_name(image_repo, 30)} / {pkg} ({cve})",
         category="Container Security",
         description=desc,
-        value=SEVERITY_POINTS.get(sev, 300),
+        value=_sev_points(sev),
         flags=[Flag(content=_wrap_flag(cve.upper()), type="static")],
-        tags=["forticnapp", "container", "vulnerability", sev.lower()],
-        hints=["The CVE is the canonical identifier on the finding itself."],
+        tags=["forticnapp", "container", "vulnerability", sev.lower(), "dynamic"],
+        hints=["The CVE identifier is listed directly on the FortiCNAPP finding."],
     )
 
 
@@ -241,6 +297,10 @@ def host_vuln_to_challenge(v: dict[str, Any]) -> Challenge | None:
     hostname = machine_tags.get("Hostname") or machine_tags.get("InstanceId") or "unknown-host"
     os_name = machine_tags.get("os") or machine_tags.get("OperatingSystem") or "linux"
     pkg = (v.get("featureKey") or {}).get("name") or "unknown-package"
+    pkg_ver = (v.get("featureKey") or {}).get("version") or ""
+    fix_info = v.get("fixInfo") or {}
+    fix_available = fix_info.get("fix_available", 0)
+    fixed_ver = fix_info.get("fixed_version", "")
 
     desc = f"""### Scenario
 {CATEGORY_NARRATIVE['Host Security']}
@@ -248,8 +308,9 @@ def host_vuln_to_challenge(v: dict[str, Any]) -> Challenge | None:
 ### Finding
 - **Host**: `{hostname}`
 - **OS**: {os_name}
-- **Package**: `{pkg}`
+- **Package**: `{pkg} {pkg_ver}`
 - **Severity**: {sev}
+- **Patch available**: {"yes → upgrade to " + fixed_ver if fix_available and fixed_ver else "yes" if fix_available else "no"}
 
 ### Question
 What is the **CVE identifier** flagged on this host? (Format: `CVE-YYYY-NNNN`)
@@ -261,64 +322,136 @@ What is the **CVE identifier** flagged on this host? (Format: `CVE-YYYY-NNNN`)
         name=f"Host Vuln: {_safe_name(hostname, 35)} / {pkg} ({cve})",
         category="Host Security",
         description=desc,
-        value=SEVERITY_POINTS.get(sev, 300),
+        value=_sev_points(sev),
         flags=[Flag(content=_wrap_flag(cve.upper()), type="static")],
-        tags=["forticnapp", "host", "vulnerability", sev.lower()],
-        hints=["CVEs are listed under vulnId."],
+        tags=["forticnapp", "host", "vulnerability", sev.lower(), "dynamic"],
+        hints=["The CVE identifier is the primary key on the FortiCNAPP host vulnerability finding."],
     )
 
 
 # --- compliance -> challenge --------------------------------------------
 
-_CIS_CTRL_RE = re.compile(r"\b(\d+\.\d+(?:\.\d+)?)\b")
-
-
 def compliance_to_challenge(c: dict[str, Any]) -> Challenge | None:
-    title = c.get("title") or c.get("id") or "Non-compliant configuration"
-    sev = c.get("severity", "Medium").capitalize()
-    resource = c.get("resource") or "unknown-resource"
-    service = c.get("service") or "unknown-service"
-    rec = c.get("recommendation") or ""
-    desc_text = c.get("description") or ""
+    """
+    Generate a compliance challenge. Works with multiple data shapes:
+    - ComplianceEvaluations (with resource + CIS number in title)
+    - Policy objects (title/severity/service — fallback from /Policies)
+    """
+    title = (c.get("title") or c.get("id") or "").strip()
+    if not title:
+        return None
 
-    # Try to extract the CIS control number from the title or description
+    sev_raw = c.get("severity", "Medium") or "Medium"
+    sev = sev_raw.capitalize()
+    resource = (c.get("resource") or "").strip()
+    service = (c.get("service") or "").strip()
+    rec = (c.get("recommendation") or "").strip()
+    desc_text = (c.get("description") or "").strip()
+
+    # ── variant 1: CIS control number in title/description/recommendation ──
     blob = f"{title} {desc_text} {rec}"
     m = _CIS_CTRL_RE.search(blob)
-    if not m:
-        return None
-    control = m.group(1)
-
-    desc = f"""### Scenario
+    if m:
+        control = m.group(1)
+        desc = f"""### Scenario
 {CATEGORY_NARRATIVE['Cloud Compliance']}
 
 ### Finding
 - **Title**: {title}
-- **Service**: `{service}`
-- **Resource**: `{resource}`
+- **Service**: `{service or 'n/a'}`
+- **Resource**: `{resource or 'n/a'}`
 - **Severity**: {sev}
-- **Recommendation**: {rec or "_n/a_"}
+- **Recommendation**: {rec or '_see FortiCNAPP for details_'}
 
 ### Question
-This finding maps to a CIS Benchmark control. What is the **control number**?
-(Format: `1.2` or `1.2.3`)
+This finding maps to a CIS Benchmark control.
+What is the **control number**? (Format: `1.2` or `1.2.3`)
 
 ### Flag format
 `FLAG{{X.Y}}` or `FLAG{{X.Y.Z}}`
 """
-    # Accept both 1.2 and 1.2.0 phrasings via regex
-    pattern = rf"FLAG\{{\s*{re.escape(control)}(?:\.0)?\s*\}}"
-    return Challenge(
-        name=f"Compliance: {_safe_name(title)}",
-        category="Cloud Compliance",
-        description=desc,
-        value=SEVERITY_POINTS.get(sev, 200),
-        flags=[Flag(content=pattern, type="regex", case_insensitive=True)],
-        tags=["forticnapp", "compliance", "cis", sev.lower()],
-        hints=[
-            "Look for the control number embedded in the finding title or "
-            "recommendation.",
-        ],
-    )
+        pattern = rf"FLAG\{{\s*{re.escape(control)}(?:\.0)?\s*\}}"
+        return Challenge(
+            name=f"Compliance: {_safe_name(title)}",
+            category="Cloud Compliance",
+            description=desc,
+            value=_sev_points(sev),
+            flags=[Flag(content=pattern, type="regex", case_insensitive=True)],
+            tags=["forticnapp", "compliance", "cis", sev.lower(), "dynamic"],
+            hints=[
+                "Look for the control number in the finding title or recommendation.",
+                f"The control number is: {control}",
+            ],
+        )
+
+    # ── variant 2: known service → ask which cloud service is misconfigured ──
+    if service:
+        # Normalise service name: "AWS::EC2::SecurityGroup" → "EC2"
+        svc_short = service.split("::")[-1] if "::" in service else service
+        # Strip common suffixes for a clean answer
+        svc_clean = re.sub(r'(Instance|Group|Bucket|Table|Function|Cluster|Role)$',
+                           '', svc_short).strip() or svc_short
+
+        desc = f"""### Scenario
+{CATEGORY_NARRATIVE['Cloud Compliance']}
+
+### Finding
+- **Control**: {title}
+- **Severity**: {sev}
+- **Recommendation**: {rec or '_see FortiCNAPP for details_'}
+
+### Question
+Which **cloud service** does this misconfiguration affect?
+Give the short service name (e.g. `EC2`, `S3`, `IAM`, `CloudTrail`).
+
+### Flag format
+`FLAG{{ServiceName}}`
+"""
+        pattern = rf"FLAG\{{\s*{re.escape(svc_short)}\s*\}}"
+        return Challenge(
+            name=f"Compliance: {_safe_name(title)} — service",
+            category="Cloud Compliance",
+            description=desc,
+            value=_sev_points(sev),
+            flags=[Flag(content=pattern, type="regex", case_insensitive=True)],
+            tags=["forticnapp", "compliance", "cspm", sev.lower(), "dynamic"],
+            hints=[
+                "Look at the resource type or the finding title for the service name.",
+                f"The service is: {svc_short}",
+            ],
+        )
+
+    # ── variant 3: severity question (always possible) ──────────────────
+    if sev.lower() in ("critical", "high", "medium", "low"):
+        desc = f"""### Scenario
+{CATEGORY_NARRATIVE['Cloud Compliance']}
+
+### Finding
+- **Control**: {title}
+- **Description**: {desc_text or '_see FortiCNAPP for details_'}
+- **Recommendation**: {rec or '_n/a_'}
+
+### Question
+What **severity** did FortiCNAPP assign to this compliance violation?
+(Answer: `Critical`, `High`, `Medium`, or `Low`)
+
+### Flag format
+`FLAG{{Severity}}`
+"""
+        return Challenge(
+            name=f"Compliance: {_safe_name(title)} — severity",
+            category="Cloud Compliance",
+            description=desc,
+            value=_sev_points(sev),
+            flags=[Flag(content=_wrap_flag(sev), type="static", case_insensitive=True)],
+            tags=["forticnapp", "compliance", "cspm", sev.lower(), "dynamic"],
+            hints=[
+                "FortiCNAPP uses four severity levels for compliance: Critical, High, Medium, Low.",
+                f"The severity is: {sev}",
+            ],
+        )
+
+    return None
 
 
 # --- orchestrator --------------------------------------------------------
@@ -341,7 +474,7 @@ def build_all(
             ch = builder(item)
             if ch is None:
                 continue
-            # Dedupe identical flags (same CVE appearing many times)
+            # Dedupe identical flags (same CVE / technique appearing many times)
             key = ch.flags[0].content if ch.flags else ch.name
             if key in seen_keys:
                 continue

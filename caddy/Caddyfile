@@ -1,0 +1,70 @@
+{
+    # ACME account email — Let's Encrypt sends expiry notices here
+    email vuillaumes@gmail.com
+
+    # Caddy admin API — internal health checks only (never expose to internet)
+    admin 0.0.0.0:2019
+}
+
+# ── CTFd — HTTPS on standard port 443 ────────────────────────────────────────
+samvblogs.duckdns.org {
+
+    # TLS via Let's Encrypt DNS-01 challenge (DuckDNS).
+    # Caddy calls the DuckDNS API to create the _acme-challenge TXT record.
+    # No port 80/443 inbound from internet needed for cert issuance.
+    tls {
+        dns duckdns {env.DUCKDNS_TOKEN}
+    }
+
+    # Compression
+    encode gzip
+
+    # Security / HTTPS enforcement headers
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options    nosniff
+        X-Frame-Options           SAMEORIGIN
+        Referrer-Policy           strict-origin-when-cross-origin
+        -Server
+    }
+
+    # Health probe for load balancers
+    respond /caddy-health 200
+
+    # CTFd reverse proxy — preserve host + forward IP for REVERSE_PROXY=true
+    reverse_proxy ctfd:8000 {
+        header_up Host              {upstream_hostport}
+        header_up X-Forwarded-For  {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+        header_up X-Real-IP         {remote_host}
+
+        # WebSocket support (CTFd uses Socket.IO for real-time updates)
+        header_up Connection        {http.request.header.Connection}
+        header_up Upgrade           {http.request.header.Upgrade}
+    }
+}
+
+# ── Trigger service — HTTPS on port 5555 ─────────────────────────────────────
+# Home page JS connects to window.location.hostname + ':5555' for build triggers.
+# Caddy reuses the same cert (same domain, different port).
+samvblogs.duckdns.org:5555 {
+
+    tls {
+        dns duckdns {env.DUCKDNS_TOKEN}
+    }
+
+    # Allow browser requests from the CTFd origin
+    header {
+        Access-Control-Allow-Origin  "https://samvblogs.duckdns.org"
+        Access-Control-Allow-Methods "GET, POST, OPTIONS"
+        Access-Control-Allow-Headers "Content-Type"
+        -Server
+    }
+
+    # Pre-flight OPTIONS requests
+    @options method OPTIONS
+    respond @options 204
+
+    # Trigger Flask service
+    reverse_proxy trigger:5555
+}

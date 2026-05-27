@@ -1,33 +1,33 @@
-# FortiCNAPP-Connected CTF Stack
-# ------------------------------------------------------------
-# Architecture:
-#   ctfd        : Official CTFd web app (Flask) -> port 8000 on the host
-#   db          : MariaDB (CTFd's recommended backing store)
-#   cache       : Redis for sessions, rate-limiting and CTFd caching
-#   bridge      : FortiCNAPP -> CTFd challenge generator (one-shot job)
+# FortiCNAPP CTF — Docker Compose Stack
+# ─────────────────────────────────────────────────────────────────────────────
+# Services:
+#   ctfd         — CTFd 3.7.5 web app (challenges, scoring, leaderboard)
+#   db           — MariaDB backing store
+#   cache        — Redis (sessions + rate-limiting)
+#   bridge-static— Pushes 21 pre-authored YAML challenges (no API needed)
+#   bridge       — Pulls live findings from FortiCNAPP API → challenges
+#   trigger      — Lightweight HTTP API for web-based build triggers (port 5555)
+#   caddy        — HTTPS reverse proxy via Let's Encrypt + DuckDNS DNS-01
 #
-# The bridge container runs once at event start, pulls findings from your
-# FortiCNAPP tenant (or mock data), sanitizes them for customer-facing
-# demos, and pushes generated challenges into CTFd via the admin API.
-#
-# Usage:
+# Quick start:
 #   1. cp .env.example .env  and fill in values
 #   2. docker compose up -d db cache ctfd
-#   3. Browse http://localhost:8000 -> complete CTFd setup wizard
-#      (admin user, event name, etc.)
-#   4. Generate a CTFd admin API token: Admin Panel -> Settings -> Tokens
-#      and put it in .env as CTFD_ADMIN_TOKEN
-#   5. docker compose run --rm bridge
-#
-# Tested with CTFd 3.7.x and FortiCNAPP / Lacework API v2.
+#   3. Open http://localhost:8000 → complete CTFd setup wizard
+#   4. Admin Panel → Settings → Tokens → Generate → paste into .env as CTFD_ADMIN_TOKEN
+#   5. docker compose up -d trigger
+#   6. Open http://localhost:8000 → use the web cards to load challenges
 
 services:
+
+  # ── Core: CTFd web app ─────────────────────────────────────────────────────
   ctfd:
     image: ctfd/ctfd:3.7.5
     container_name: forticnapp-ctfd
     restart: unless-stopped
     ports:
-      - "${CTFD_HOST_PORT:-8000}:8000"
+      # Bound to localhost — Caddy is the public TLS terminator.
+      # Access directly at http://localhost:8000 when Caddy is not running.
+      - "127.0.0.1:${CTFD_HOST_PORT:-8000}:8000"
     environment:
       - UPLOAD_FOLDER=/var/uploads
       - DATABASE_URL=mysql+pymysql://ctfd:${MYSQL_PASSWORD:-ctfd_change_me}@db/ctfd
@@ -41,16 +41,15 @@ services:
     volumes:
       - ctfd-uploads:/var/uploads
       - ctfd-logs:/var/log/CTFd
-      - ./theme:/opt/CTFd/CTFd/themes/core/static/custom:ro          # core theme CSS (served as static file)
-      - ./theme/admin_base.html:/opt/CTFd/CTFd/themes/admin/templates/base.html:ro  # injects admin dark theme
+      - ./theme:/opt/CTFd/CTFd/themes/core/static/custom:ro
+      - ./theme/admin_base.html:/opt/CTFd/CTFd/themes/admin/templates/base.html:ro
     depends_on:
-      db:
-        condition: service_healthy
-      cache:
-        condition: service_healthy
+      db:    { condition: service_healthy }
+      cache: { condition: service_healthy }
     networks:
       - ctf-net
 
+  # ── Database ───────────────────────────────────────────────────────────────
   db:
     image: mariadb:10.11
     container_name: forticnapp-ctfd-db
@@ -68,18 +67,16 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
-    # MariaDB tuning recommended by CTFd docs
     command:
-      [
-        "mysqld",
-        "--character-set-server=utf8mb4",
-        "--collation-server=utf8mb4_unicode_ci",
-        "--wait_timeout=28800",
-        "--log-warnings=0",
-      ]
+      - mysqld
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --wait_timeout=28800
+      - --log-warnings=0
     networks:
       - ctf-net
 
+  # ── Cache ──────────────────────────────────────────────────────────────────
   cache:
     image: redis:7-alpine
     container_name: forticnapp-ctfd-cache
@@ -94,11 +91,32 @@ services:
     networks:
       - ctf-net
 
-  # ── Dynamic bridge: pulls live findings from FortiCNAPP API ─────────────
+  # ── Static bridge: push pre-authored YAML challenges ──────────────────────
+  # One-shot job — run manually or triggered from the home page web UI.
+  # docker compose run --rm bridge-static
+  bridge-static:
+    build: ./static_ctf
+    container_name: forticnapp-ctf-bridge-static
+    restart: "no"
+    environment:
+      - CTFD_API_URL=http://ctfd:8000
+      - CTFD_ADMIN_TOKEN=${CTFD_ADMIN_TOKEN}
+      - FORTICNAPP_ACCOUNT=${FORTICNAPP_ACCOUNT:-forticnapp-demo}
+      - FORTICNAPP_SUBACCOUNT=${FORTICNAPP_SUBACCOUNT:-}
+      - CTF_NAME=${CTF_NAME:-Capture the Flag powered by FortiCNAPP}
+      - STATIC_SCHEMA_DIR=/app/ctf
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    depends_on:
+      - ctfd
+    networks:
+      - ctf-net
+
+  # ── Dynamic bridge: pull live FortiCNAPP findings → challenges ─────────────
+  # One-shot job — run manually or triggered from the home page web UI.
+  # docker compose run --rm bridge
   bridge:
     build: ./forticnapp_ctf_api
     container_name: forticnapp-ctf-bridge
-    # One-shot job. Run with:  docker compose run --rm bridge
     restart: "no"
     environment:
       - FORTICNAPP_ACCOUNT=${FORTICNAPP_ACCOUNT}
@@ -118,30 +136,73 @@ services:
     networks:
       - ctf-net
 
-  # ── Static bridge: pushes pre-authored YAML challenges (no live API needed)
-  bridge-static:
-    build: ./static_ctf
-    container_name: forticnapp-ctf-bridge-static
-    # One-shot job. Run with:  docker compose run --rm bridge-static
-    restart: "no"
+  # ── Trigger service: web-based build triggers ──────────────────────────────
+  # Always-on service. Home page JS calls it to start builds and reset challenges.
+  # Endpoints: POST /run/static  POST /run/dynamic  POST /reset  GET /status/<mode>
+  # Admin token stays inside this container — never exposed to the browser.
+  trigger:
+    build:
+      context: .
+      dockerfile: trigger/Dockerfile
+    container_name: forticnapp-ctf-trigger
+    restart: unless-stopped
+    ports:
+      # Localhost only — Caddy terminates TLS externally on port 5555.
+      - "127.0.0.1:${TRIGGER_HOST_PORT:-5555}:5555"
     environment:
       - CTFD_API_URL=http://ctfd:8000
       - CTFD_ADMIN_TOKEN=${CTFD_ADMIN_TOKEN}
       - FORTICNAPP_ACCOUNT=${FORTICNAPP_ACCOUNT:-forticnapp-demo}
       - FORTICNAPP_SUBACCOUNT=${FORTICNAPP_SUBACCOUNT:-}
+      - FORTICNAPP_API_KEY_ID=${FORTICNAPP_API_KEY_ID:-}
+      - FORTICNAPP_API_SECRET=${FORTICNAPP_API_SECRET:-}
       - CTF_NAME=${CTF_NAME:-Capture the Flag powered by FortiCNAPP}
       - STATIC_SCHEMA_DIR=/app/ctf
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - TRIGGER_PORT=5555
     depends_on:
       - ctfd
     networks:
       - ctf-net
+
+  # ── Caddy: HTTPS reverse proxy (Let's Encrypt via DuckDNS DNS-01) ──────────
+  # Optional — only needed for HTTPS. Requires DUCKDNS_TOKEN in .env.
+  # See README § HTTPS Setup for instructions.
+  caddy:
+    build:
+      context: ./caddy
+      dockerfile: Dockerfile
+    container_name: forticnapp-ctf-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"      # HTTP → HTTPS redirect
+      - "443:443"    # CTFd HTTPS
+      - "5555:5555"  # Trigger service HTTPS
+    environment:
+      DUCKDNS_TOKEN: ${DUCKDNS_TOKEN}
+    volumes:
+      # NEVER delete caddy_data — Let's Encrypt rate-limits to 5 certs/domain/week
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - ctfd
+      - trigger
+    networks:
+      - ctf-net
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:2019/config/"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
 volumes:
   ctfd-uploads:
   ctfd-logs:
   ctfd-db:
   ctfd-cache:
+  caddy_data:    # TLS certificates — never delete
+  caddy_config:  # Caddy config cache
 
 networks:
   ctf-net:

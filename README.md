@@ -4,9 +4,8 @@
 
 # FortiCNAPP CTF
 
-**A Capture-The-Flag platform for FortiCNAPP workshops and customer events**
+**A Capture-The-Flag platform for FortiCNAPP workshops and customer demos**
 
-![Fortinet Red](https://img.shields.io/badge/Fortinet-DA291C?style=flat&logoColor=white)
 ![CTFd](https://img.shields.io/badge/CTFd-3.7.5-000000?style=flat&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat&logo=docker&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-3.12-3572A5?style=flat&logo=python&logoColor=white)
@@ -16,122 +15,118 @@
 
 ---
 
-## Overview
+## What is it?
 
-FortiCNAPP CTF turns real cloud security findings into hands-on learning.
+FortiCNAPP CTF turns real cloud security findings into a scored, timed competition.
 Participants navigate the FortiCNAPP console to investigate alerts, triage vulnerabilities,
-and map compliance violations — submitting `FLAG{...}` answers to score points on a live leaderboard.
+and map compliance violations — then submit `FLAG{...}` answers on a live leaderboard.
 
-Two modes let you run it with or without a live FortiCNAPP tenant:
+**Two modes, one stack:**
 
-| Mode | Challenges | FortiCNAPP required | Best for |
+| Mode | Challenges | FortiCNAPP tenant | Best for |
 |---|---|---|---|
-| **Static** | 21 curated, hand-authored | ❌ No | Demos, travel, rehearsal, offline |
-| **Dynamic** | Up to 20, from real findings | ✅ Yes | Live events with a real tenant |
-
-Both modes share the same CTFd scoreboard, Fortinet dark theme, and Docker stack.
+| **CTF Lab** (static) | 21 hand-authored | ❌ Not needed | Demos, offline, rehearsal |
+| **Live CTF** (dynamic) | Generated from real data | ✅ Required | Live events with a real tenant |
 
 ---
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                      Docker Compose Stack                        │
-│                                                                  │
-│  ┌──────────────┐   ┌──────────────┐   ┌──────────────────────┐ │
-│  │  MariaDB     │   │  Redis       │   │  CTFd 3.7.5          │ │
-│  │  (ctf-db)    │   │  (ctf-cache) │   │  http://localhost:8000│ │
-│  └──────────────┘   └──────────────┘   └──────────┬───────────┘ │
-│                                                    │ Admin API   │
-│  ┌──────────────────────────┐  ┌───────────────────▼───────────┐ │
-│  │  bridge-static           │  │  bridge (dynamic)             │ │
-│  │  static_ctf/             │  │  forticnapp_ctf_api/          │ │
-│  │  reads YAML → CTFd API   │  │  FortiCNAPP API → CTFd API    │ │
-│  └──────────────────────────┘  └───────────────────────────────┘ │
-│                                            ▲                     │
-└────────────────────────────────────────────│─────────────────────┘
-                                             │
-                               ┌─────────────┴──────────────┐
-                               │  FortiCNAPP / Lacework API  │
-                               │  partner-demo.lacework.net  │
-                               └────────────────────────────┘
+Browser
+  │
+  │  https://your-domain:443        (CTFd UI)
+  │  https://your-domain:5555       (Trigger API)
+  │
+  ▼
+┌──────────────────────────────────────────────────────────┐
+│  Caddy (HTTPS reverse proxy)                             │
+│  Let's Encrypt cert via DuckDNS DNS-01                   │
+└────────────┬──────────────────────────────┬─────────────┘
+             │                              │
+      :8000  ▼                       :5555  ▼
+  ┌──────────────────┐       ┌──────────────────────────┐
+  │  CTFd 3.7.5      │       │  Trigger Service (Flask) │
+  │  challenges      │◀──────│  POST /run/static        │
+  │  scoring         │       │  POST /run/dynamic       │
+  │  leaderboard     │       │  POST /reset             │
+  └────────┬─────────┘       └──────────────────────────┘
+           │                          │
+    ┌──────┴──────┐            ┌──────┴──────────────────────┐
+    │  MariaDB    │            │  bridge-static              │
+    │  Redis      │            │  reads YAML → CTFd API      │
+    └─────────────┘            │                             │
+                               │  bridge (dynamic)           │
+                               │  FortiCNAPP API → CTFd API  │
+                               └─────────────────────────────┘
+                                            │
+                                ┌───────────┴──────────┐
+                                │  FortiCNAPP / Lacework│
+                                │  (live tenant — opt.) │
+                                └──────────────────────┘
 ```
 
 ---
 
 ## Prerequisites
 
-- **Docker** + **Docker Compose v2**
-- A free port `8000` on localhost
-- *(Static mode only)* — nothing else needed
-- *(Dynamic mode)* — a FortiCNAPP API key (KeyId + Secret + account name)
+- **Docker** and **Docker Compose v2** (`docker compose version`)
+- **Ports 80, 443, 5555** available for Caddy HTTPS (or just 8000 for HTTP-only)
+- A **DuckDNS token** and subdomain (for HTTPS — free at [duckdns.org](https://www.duckdns.org))
+- A **FortiCNAPP API key** (dynamic mode only)
 
 ---
 
 ## Quick Start
 
-### 1 — Clone and configure
+### 1 — Configure
 
 ```bash
-git clone https://github.com/svuillaume/forticnapp-ctfd.git
-cd forticnapp-ctfd
 cp .env.example .env
 ```
 
-Edit `.env` — minimum required fields:
+Edit `.env` — fill in the required fields:
 
 ```dotenv
-# ── CTFd ──────────────────────────────────────────────────────────────────────
-SECRET_KEY=any-strong-random-string        # required for CTFd to start (any value)
-CTFD_ADMIN_TOKEN=                          # fill in after step 4 below
+# Required for CTFd to start
+SECRET_KEY=any-strong-random-string
 
-# ── FortiCNAPP API (dynamic mode only — skip for static mode) ─────────────────
-# Get these from: FortiCNAPP Console → Settings → API Keys → Create New
-# The downloaded JSON file contains keyId, secret, and account.
-FORTICNAPP_ACCOUNT=acme-prod              # subdomain only: acme-prod.lacework.net → acme-prod
-FORTICNAPP_SUBACCOUNT=                    # leave blank unless using sub-accounts
-FORTICNAPP_API_KEY_ID=ACME_1234567890ABCDEF
-FORTICNAPP_API_SECRET=_replace_with_secret_
+# Fill in after step 3 (CTFd setup wizard)
+CTFD_ADMIN_TOKEN=
 
-# ── Options ───────────────────────────────────────────────────────────────────
-MOCK_MODE=false                            # true = use sample_data/*.json (no live API)
-SANITIZE=true                              # ALWAYS true for customer demos
-LOOKBACK_HOURS=72
-MAX_CHALLENGES_PER_CATEGORY=5
-CTF_NAME=Capture the Flag powered by FortiCNAPP
+# For HTTPS (optional — skip for HTTP-only)
+DUCKDNS_TOKEN=your-duckdns-token
+
+# For Live CTF mode (optional — skip for CTF Lab)
+FORTICNAPP_ACCOUNT=your-account
+FORTICNAPP_API_KEY_ID=YOUR_KEY_ID
+FORTICNAPP_API_SECRET=_your_secret
 ```
 
-> **Static mode** (`bridge-static`) does not need any FortiCNAPP credentials —
-> only `SECRET_KEY` and `CTFD_ADMIN_TOKEN` are required.
-
-### 2 — Start CTFd
+### 2 — Start the stack
 
 ```bash
-docker compose up -d db cache ctfd
+# HTTP only (quick demo / local)
+docker compose up -d db cache ctfd trigger
+
+# HTTPS (production / event)
+docker compose up -d db cache ctfd trigger caddy
 ```
 
-Wait ~15 seconds, then open **http://localhost:8000**.
+Wait ~15 seconds, then open:
+- **HTTP**: `http://localhost:8000`
+- **HTTPS**: `https://your-domain.duckdns.org`
 
-> **Docker lifecycle cheat-sheet**
-> ```bash
-> docker compose up -d db cache ctfd   # start (keep data)
-> docker compose down                  # stop  (keep data)
-> docker compose down -v               # ⚠️  stop + wipe database (full reset)
-> docker compose logs -f ctfd          # watch CTFd logs
-> docker compose ps                    # check container health
-> ```
+### 3 — Complete the CTFd setup wizard
 
-### 3 — Complete the first-boot wizard
-
-1. Enter your event name — e.g. `Capture the Flag powered by FortiCNAPP`
-2. Create an admin user (remember these credentials)
+1. Enter your event name (e.g. *Capture the Flag powered by FortiCNAPP*)
+2. Create an admin user — **remember these credentials**
 3. Choose **Users** or **Teams** scoring mode
 4. Click **Finish Setup**
 
 ### 4 — Generate an admin API token
 
-In the CTFd UI: **Admin Panel → Settings → Tokens → Generate**
+**Admin Panel → Settings → Tokens → Generate**
 
 Paste it into `.env`:
 
@@ -139,180 +134,212 @@ Paste it into `.env`:
 CTFD_ADMIN_TOKEN=ctfd_xxxxxxxxxxxxxxxx
 ```
 
-### 5 — Load challenges
-
-Pick your mode:
+Then restart the trigger service so it picks up the new token:
 
 ```bash
-# Static — 21 curated challenges, no API needed
-docker compose run --rm bridge-static
-
-# Dynamic — live challenges from your FortiCNAPP tenant
-docker compose run --rm bridge
+docker compose restart trigger
 ```
 
-Open **http://localhost:8000** — challenges, Fortinet dark theme, and leaderboard are live.
+### 5 — Load challenges from the home page
+
+Open the CTFd home page. You will see two cards:
+
+| Card | What it does |
+|---|---|
+| **CTF Lab** | Loads 21 pre-authored YAML challenges (no API needed) |
+| **Live CTF** | Prompts for FortiCNAPP credentials, then generates challenges from live data |
+
+Click **Load Lab Challenges** or **Load Live Challenges**, wait for the status to turn green, then click **Start Challenges**.
+
+> **CLI alternative:** you can also run the bridges directly:
+> ```bash
+> docker compose run --rm bridge-static   # CTF Lab
+> docker compose run --rm bridge          # Live CTF
+> ```
 
 ---
 
-## Static Mode
+## Modes in Detail
 
-Pre-authored challenges covering real FortiCNAPP scenarios. No tenant, no credentials, works offline.
+### CTF Lab (Static)
 
-```bash
-docker compose run --rm bridge-static
-```
+Pre-authored challenges covering real FortiCNAPP scenarios. No credentials needed. Works offline.
 
 **21 challenges across 4 categories:**
 
-| Category | # | Topics |
+| Category | # | Topics covered |
 |---|---|---|
-| 🔴 **Alert Triage** | 5 | MITRE ATT&CK T1496, T1078.004, T1571 · alert categories · composite alerts |
-| 🟠 **Host Security** | 5 | Hostname lookup · CVE identification · CVSS scoring · agentless scanning |
-| 🔵 **Container Security** | 5 | Shadow MCP detection · Docker image forensics · crypto mining · port exposure |
-| 🟡 **Cloud Compliance** | 6 | CIS AWS controls 1.5 · 1.14 · 2.1.5 · 3.1 · 5.2x · CSPM acronym |
+| 🔴 Alert Triage | 5 | MITRE ATT&CK T1496 · T1078.004 · T1571 · alert categories · composite alerts |
+| 🟠 Host Security | 5 | CVE identification · CVSS scoring · hostname lookup · agentless scanning |
+| 🔵 Container Security | 5 | Shadow MCP detection · crypto mining · Docker forensics · port exposure |
+| 🟡 Cloud Compliance | 6 | CIS AWS 1.5 · 1.14 · 2.1.5 · 3.1 · 5.2x · CSPM acronym |
 
-Challenges live in `static_ctf/ctf/*/challenges.yml`. Edit freely and re-run
-`bridge-static` to push updates — it's fully idempotent (create on first run, update on re-run).
+Challenges live in `static_ctf/ctf/*/challenges.yml`. Edit freely and reload — the builder is **fully idempotent** (create on first run, update on re-run).
 
----
-
-## Dynamic Mode
+### Live CTF (Dynamic)
 
 Pulls real findings from your FortiCNAPP tenant and auto-generates challenges.
 
-### API credentials
+**FortiCNAPP Console → Settings → API Keys → Create New**
 
-In the FortiCNAPP console: **Settings → API Keys → Create New**.
 Download the JSON file — it contains `keyId`, `secret`, and `account`.
 
 Add to `.env`:
 
 ```dotenv
-MOCK_MODE=false
-SANITIZE=true                              # ALWAYS keep true for customer demos
-
-FORTICNAPP_ACCOUNT=acme-prod              # subdomain: acme-prod.lacework.net → acme-prod
-FORTICNAPP_SUBACCOUNT=                    # leave blank unless using sub-accounts
+FORTICNAPP_ACCOUNT=acme-prod          # subdomain: acme-prod.lacework.net → acme-prod
+FORTICNAPP_SUBACCOUNT=                # leave blank unless using sub-accounts
 FORTICNAPP_API_KEY_ID=ACME_1234...
-FORTICNAPP_API_SECRET=_replace_with_secret_
-
-LOOKBACK_HOURS=72                         # how far back to pull alerts
-MAX_CHALLENGES_PER_CATEGORY=5             # cap per category
+FORTICNAPP_API_SECRET=_your_secret
+LOOKBACK_HOURS=72                     # how far back to pull alerts (72h default)
+MAX_CHALLENGES_PER_CATEGORY=5         # cap per category
 ```
 
-Then:
+| Category | FortiCNAPP API endpoint |
+|---|---|
+| Alert Triage | `/api/v2/Alerts` (MITRE-tagged alerts) |
+| Host Security | `/api/v2/Vulnerabilities/Hosts/search` |
+| Container Security | `/api/v2/Vulnerabilities/Containers/search` |
+| Cloud Compliance | `/api/v2/Configs/ComplianceEvaluations/search` |
 
-```bash
-docker compose run --rm bridge
-```
-
-Expected output:
-
-```
-bridge | Pulled findings: {'alerts': 6, 'container_vulns': 5, 'host_vulns': 4, 'compliance': 5}
-bridge | Sanitization applied (12 unique values mapped)
-bridge | Built 17 challenges total
-bridge | Push complete: {'created': 17, 'skipped': 0, 'failed': 0}
-```
-
-### What each category queries
-
-| Category | API endpoint | Requires |
-|---|---|---|
-| Alert Triage | `/api/v2/Alerts` | Alerts with MITRE `tagMetadata` |
-| Host Security | `/api/v2/Vulnerabilities/Hosts/search` | Lacework agent or agentless scanning |
-| Container Security | `/api/v2/Vulnerabilities/Containers/search` | Agentless workload scanning |
-| Cloud Compliance | `/api/v2/Configs/ComplianceEvaluations/search` | CSPM integration active |
-
-### Offline rehearsal (mock mode)
+**Offline rehearsal (mock mode)** — reads from `sample_data/*.json` instead of the live API:
 
 ```dotenv
 MOCK_MODE=true
 ```
 
-Reads from `sample_data/*.json` instead of the live API — perfect for flights and demos without connectivity.
+### Sanitization
+
+When `SANITIZE=true` (default — **always on for customer demos**), the bridge scrubs:
+
+- AWS 12-digit account IDs and ARNs
+- Azure subscription UUIDs
+- GCP project identifiers
+- S3 bucket names
+- Public IPv4 addresses
+- Email addresses and public DNS hostnames
+
+The mapping is stable per run — the same real value always produces the same anonymized value, so challenge descriptions stay internally consistent.
 
 ---
 
-## Running Both Modes Together
+## HTTPS Setup
 
-Layer them: static first for guaranteed challenges, dynamic on top for live tenant data.
+Uses [Caddy](https://caddyserver.com/) with a custom [DuckDNS](https://www.duckdns.org) DNS-01 plugin.
+The cert is issued automatically — **port 80 does not need to be open to the internet.**
+
+### 1 — Get a DuckDNS subdomain
+
+1. Log in at [duckdns.org](https://www.duckdns.org)
+2. Create a subdomain (e.g. `samvblogs`)
+3. Set its **A record** to your host's public IP
+4. Copy your **token** from the top of the page
+
+### 2 — Configure
+
+```dotenv
+# In .env
+DUCKDNS_TOKEN=your-token-here
+```
+
+Update `caddy/Caddyfile` if you are using a different domain:
+
+```
+samvblogs.duckdns.org {          # ← change this
+    tls { dns duckdns {env.DUCKDNS_TOKEN} }
+    reverse_proxy ctfd:8000
+}
+samvblogs.duckdns.org:5555 {    # ← and this
+    tls { dns duckdns {env.DUCKDNS_TOKEN} }
+    reverse_proxy trigger:5555
+}
+```
+
+### 3 — Start
 
 ```bash
-docker compose run --rm bridge-static   # 21 static challenges
-docker compose run --rm bridge          # + live-generated challenges
+docker compose up -d db cache ctfd trigger caddy
 ```
 
-CTFd deduplicates by name — no overlap as long as challenge names differ.
+Caddy fetches the certificate on first start (~30 seconds), then renews it automatically.
+
+> ⚠️ **Never delete the `caddy_data` Docker volume** — Let's Encrypt rate-limits to 5 certs per domain per week.
 
 ---
 
-## Event Workflow (Two Phases)
+## Event Workflow
 
-### Phase 1 — Setup (before participants arrive)
+### Before the event (presenter setup, ~5 min)
 
+```bash
+# 1. Start the stack
+docker compose up -d db cache ctfd trigger
+
+# 2. Complete the CTFd setup wizard at http://localhost:8000
+#    → create admin user, choose Users/Teams mode, Finish Setup
+
+# 3. Generate admin token: Admin Panel → Settings → Tokens → Generate
+#    → paste into .env as CTFD_ADMIN_TOKEN=ctfd_...
+#    → docker compose restart trigger
+
+# 4. Load challenges — either via home page cards, or:
+docker compose run --rm bridge-static   # CTF Lab
+docker compose run --rm bridge          # Live CTF (needs .env credentials)
+
+# 5. Make challenges visible
+#    Admin Panel → Configs → Challenge Visibility → Public
 ```
-SE / Presenter                 FortiCNAPP Console              CTFd
-─────────────────────────────────────────────────────────────────────
-1. docker compose up -d        (tenant already has findings)
-2. Complete CTFd wizard →
-3. Generate admin token →                                  admin panel
-4. docker compose run --rm bridge-static   ─────────────▶  21 challenges loaded
-   (or bridge for live data)
-5. Verify at http://localhost:8000
-```
 
-Typical setup time: **5 minutes** (static) or **10 minutes** (dynamic).
+### During the event (participants)
 
-### Phase 2 — Live CTF Event (participants)
-
-```
-Participants                   FortiCNAPP Console              CTFd
-─────────────────────────────────────────────────────────────────────
-1. Register at http://localhost:8000
-2. Read challenge scenario  ──▶  Navigate console to find answer
-3. Submit FLAG{...}         ──────────────────────────────────▶  scored
-4. Leaderboard updates live
-```
+1. **Register** at the CTFd URL
+2. **Read** the challenge scenario
+3. **Navigate** FortiCNAPP console to find the answer
+4. **Submit** `FLAG{answer}` → scored instantly
+5. Watch the **live leaderboard** update
 
 **Suggested 45-minute arc:**
-| Time | Round | FortiCNAPP skill reinforced |
+
+| Time | Round | Skill reinforced |
 |---|---|---|
 | 0–2 min | Scene-setting | — |
 | 2–17 min | 🔴 Alert Triage | MITRE mapping accelerates IR |
-| 17–32 min | 🟠 Host + Container Security | CWPP value vs. siloed scanners |
+| 17–32 min | 🟠 🔵 Host + Container Security | CWPP value vs. siloed scanners |
 | 32–42 min | 🟡 Cloud Compliance | CSPM + audit story |
 | 42–45 min | Debrief + leaderboard | Walk one finding live in console |
 
 ---
 
-## Theme
+## Adding Custom Challenges
 
-The platform ships with a **FortiGuard Labs dark theme** — deep navy-black background,
-red accent glows, monospace flag inputs, and JetBrains Mono typography.
-
-Inspired by [fortiguard.com/threatintel-search](https://www.fortiguard.com/threatintel-search).
-
-| Token | Value | Used for |
-|---|---|---|
-| Background | `#09111e` | Page background with grid texture |
-| Card surface | `#0e1929` | Challenge cards, modals |
-| **Fortinet Red** | `#DA291C` | Buttons, borders, nav accent, rank #1 |
-| Cyan | `#00b0cc` | Score chips, countdown timer, blockquotes |
-| Text primary | `#e2eaf4` | Body text |
-| Mono green | `#7affa0` | Flag input text |
-
-**Theme is applied automatically** every time `bridge` or `bridge-static` runs.
-To push CSS changes manually:
+Edit or create YAML files in `static_ctf/ctf/<category>/challenges.yml`.
+Reload with:
 
 ```bash
-source .env
-CSS=$(cat theme/fortinet.css)
-curl -X PATCH http://localhost:8000/api/v1/configs \
-  -H "Authorization: Token ${CTFD_ADMIN_TOKEN}" \
-  -H "Content-Type: application/json" \
-  -d "{\"css\": $(echo "$CSS" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')}"
+docker compose run --rm bridge-static
+# or click "Load Lab Challenges" on the home page
+```
+
+**Minimal challenge template:**
+
+```yaml
+challenges:
+  - name: "My Challenge Title"
+    author: "Your Name"
+    category: "Alert Triage"
+    description: |
+      Find the alert triggered by technique **T1496** and submit the MITRE ID.
+    value: 100
+    type: standard
+    flags:
+      - content: "FLAG{T1496}"
+        type: static
+    hints:
+      - content: "Check the Alert Triage dashboard in FortiCNAPP."
+    tags:
+      - mitre
+      - alerts
+    state: visible
 ```
 
 ---
@@ -321,41 +348,54 @@ curl -X PATCH http://localhost:8000/api/v1/configs \
 
 ```
 forticnapp-ctf/
-├── docker-compose.yml               # CTFd + DB + cache + bridge + bridge-static
-├── .env.example                     # template — copy to .env, never commit .env
+├── docker-compose.yml               # full stack definition
+├── .env.example                     # copy to .env — never commit .env
 ├── README.md
 │
-├── theme/
-│   └── fortinet.css                 # FortiGuard Labs dark theme CSS
+├── theme/                           # Fortinet dark theme
+│   ├── fortinet.css                 # main theme (injected into CTFd)
+│   ├── fortinet-admin.css           # admin panel overrides
+│   ├── admin_base.html              # admin panel base template
+│   └── SOC.png                      # hero image
 │
-├── static_ctf/                      # ── Static mode ──────────────────────────
+├── static_ctf/                      # ── CTF Lab (static mode) ─────────────
 │   ├── Dockerfile
-│   ├── build.py                     # entrypoint: reads env, waits for CTFd, runs build
-│   ├── ctfbuilder.py                # idempotent push: create + update challenges
+│   ├── build.py                     # entrypoint: reads env → builds CTF
+│   ├── ctfbuilder.py                # idempotent challenge push (create + update)
 │   ├── ctfd.py                      # CTFd REST API wrapper
+│   ├── home.html                    # custom CTFd home page (mode selector cards)
+│   ├── fortinet.css                 # theme copy for static container
 │   ├── requirements.txt
 │   └── ctf/
-│       ├── config.yml               # sets CTFd event name
+│       ├── config.yml               # CTFd event settings
 │       ├── 1_Alert Triage/
-│       │   └── challenges.yml       # 5 challenges
+│       │   └── challenges.yml
 │       ├── 2_Host Security/
-│       │   └── challenges.yml       # 5 challenges
+│       │   └── challenges.yml
 │       ├── 3_Container Security/
-│       │   └── challenges.yml       # 5 challenges
+│       │   └── challenges.yml
 │       └── 4_Cloud Compliance/
-│           └── challenges.yml       # 6 challenges
+│           └── challenges.yml
 │
-├── forticnapp_ctf_api/              # ── Dynamic mode ─────────────────────────
+├── forticnapp_ctf_api/              # ── Live CTF (dynamic mode) ───────────
 │   ├── Dockerfile
 │   ├── requirements.txt
-│   ├── __main__.py                  # python -m forticnapp_ctf_api
-│   ├── bridge.py                    # orchestrator: pull → sanitize → build → push
-│   ├── forticnapp_client.py         # Lacework v2 REST client (auth + queries)
-│   ├── ctfd_client.py               # CTFd admin REST client + theme injection
-│   ├── challenges.py                # finding → Challenge mapping + FLAG logic
-│   └── sanitize.py                  # PII / customer-data scrubber
+│   ├── bridge.py                    # orchestrator: pull → sanitize → push
+│   ├── forticnapp_client.py         # FortiCNAPP/Lacework v2 API client
+│   ├── ctfd_client.py               # CTFd admin API client
+│   ├── challenges.py                # finding → Challenge object mapping
+│   └── sanitize.py                  # PII scrubber for customer-safe demos
 │
-└── sample_data/                     # mock fixtures for MOCK_MODE=true
+├── trigger/                         # ── Trigger service (always-on) ───────
+│   ├── Dockerfile
+│   ├── app.py                       # Flask API: /run/static /run/dynamic /reset
+│   └── requirements.txt
+│
+├── caddy/                           # ── HTTPS reverse proxy ───────────────
+│   ├── Dockerfile                   # custom Caddy build with DuckDNS plugin
+│   └── Caddyfile                    # TLS config + proxy rules
+│
+└── sample_data/                     # mock data for MOCK_MODE=true
     ├── alerts.json
     ├── container_vulns.json
     ├── host_vulns.json
@@ -366,93 +406,85 @@ forticnapp-ctf/
 
 ## Flag Format
 
-All challenges use:
-
 ```
-FLAG{your_answer_here}
+FLAG{answer}
 ```
 
-| Category | Answer is… | Match |
-|---|---|---|
-| Alert Triage | MITRE technique ID e.g. `T1496`, `T1078.004` | static, case-insensitive |
-| Host Security | CVE ID e.g. `CVE-2025-12345`, or hostname regex | static / regex |
-| Container Security | Image name, port number, acronym expansion | static, case-insensitive |
-| Cloud Compliance | CIS control number e.g. `1.5`, `2.1.5` | static / regex |
+| Category | Answer is… |
+|---|---|
+| Alert Triage | MITRE technique ID — `T1496`, `T1078.004` |
+| Host Security | CVE ID — `CVE-2025-12345`, or hostname |
+| Container Security | Image name, port, or acronym |
+| Cloud Compliance | CIS control number — `1.5`, `2.1.5` |
+
+All flags are case-insensitive.
 
 ---
 
-## Sanitization
+## Useful Commands
 
-When `SANITIZE=true` (default, **always use for customer demos**), the dynamic bridge scrubs:
+```bash
+# Start (HTTP only)
+docker compose up -d db cache ctfd trigger
 
-- AWS 12-digit account IDs and full ARNs
-- Azure subscription UUIDs
-- GCP `projects/...` identifiers
-- S3 bucket names
-- Public IPv4 addresses (RFC1918 and loopback are kept — they're demo-safe)
-- Email addresses
-- Public DNS hostnames
+# Start (HTTPS)
+docker compose up -d db cache ctfd trigger caddy
 
-The mapping is stable per run — the same real value always maps to the same fake value,
-so challenge descriptions stay internally consistent.
+# Stop (keep data)
+docker compose down
+
+# Full reset — wipes database and all scores
+docker compose down -v
+
+# Watch logs
+docker compose logs -f ctfd
+docker compose logs -f trigger
+
+# Check container health
+docker compose ps
+
+# Load challenges manually (CLI)
+docker compose run --rm bridge-static   # CTF Lab
+docker compose run --rm bridge          # Live CTF
+
+# Rebuild an image after code changes
+docker compose build trigger
+docker compose up -d trigger
+```
 
 ---
 
 ## Troubleshooting
 
 **CTFd keeps restarting**
-```dotenv
-SECRET_KEY=any-strong-random-string    # add this to .env
-```
+Add `SECRET_KEY=any-strong-random-string` to `.env`.
 
 **Admin token rejected (401)**
-Regenerate in CTFd UI → Admin Panel → Settings → Tokens, update `CTFD_ADMIN_TOKEN` in `.env`.
+Regenerate: Admin Panel → Settings → Tokens. Update `CTFD_ADMIN_TOKEN` in `.env`, then `docker compose restart trigger`.
 
-**0 challenges generated (dynamic)**
-1. Verify credentials: `FORTICNAPP_ACCOUNT`, `FORTICNAPP_API_KEY_ID`, `FORTICNAPP_API_SECRET`
-2. Check `FORTICNAPP_SUBACCOUNT` matches the tenant (leave blank if not using sub-accounts)
-3. Widen search: `LOOKBACK_HOURS=720`
-4. Test offline: `MOCK_MODE=true`
+**Home page cards show "already running"**
+A previous build is still in progress. Check `GET http://localhost:5555/status/static` or wait a minute.
 
-**Container Security returning 0 (dynamic)**
-Agentless Workload Scanning must be enabled on the tenant. Try `LOOKBACK_HOURS=720` or `MOCK_MODE=true`.
+**0 challenges generated (Live CTF)**
+1. Check credentials: `FORTICNAPP_ACCOUNT`, `FORTICNAPP_API_KEY_ID`, `FORTICNAPP_API_SECRET`
+2. Widen the search window: `LOOKBACK_HOURS=720`
+3. Test offline: `MOCK_MODE=true`
 
-**YAML error in static_ctf/**
-All `content:` values containing `: ` substrings must be quoted. Example:
-```yaml
-# ❌ breaks YAML
-- content: Look for this (hint: check section 5).
-# ✅ correct
-- content: "Look for this (hint: check section 5)."
-```
+**Container Security returns 0 (dynamic)**
+Agentless Workload Scanning must be enabled on the tenant. Set `LOOKBACK_HOURS=720` or `MOCK_MODE=true`.
 
-**Stop the stack (keep data)**
-```bash
-docker compose down             # stops all containers, volumes preserved
-docker compose up -d db cache ctfd    # restart
-```
+**HTTPS cert not issuing**
+- Verify DNS A record points to your host's public IP
+- Check `DUCKDNS_TOKEN` is set in `.env`
+- View Caddy logs: `docker compose logs -f caddy`
 
-**Full reset (wipe all data)**
-```bash
-docker compose down -v          # ⚠️ drops the CTFd database — all scores and challenges erased
-docker compose up -d db cache ctfd
-# Redo first-boot wizard, generate new token, re-run bridge
-```
-
----
-
-## Roadmap
-
-- [ ] Dynamic scoring (challenge value decays as more teams solve it)
-- [ ] Per-challenge raw JSON attachment (download the FortiCNAPP finding)
-- [ ] LQL-based challenges ("write the query that catches this pattern")
-- [ ] Webhook: new FortiCNAPP alert during the event spawns a live bonus challenge
-- [ ] Container Security fallback to mock when live API returns 0 results
+**Challenges not visible to participants**
+Admin Panel → Configs → Challenge Visibility → set to **Public**.
 
 ---
 
 ## License & Attribution
 
 CTFd is [BSD-2-Clause licensed](https://github.com/CTFd/CTFd/blob/master/LICENSE).
-This wrapper has no affiliation with the CTFd project.
 FortiCNAPP and Lacework are trademarks of Fortinet, Inc.
+This project has no official affiliation with CTFd.

@@ -2,8 +2,10 @@
 challenges:
 
 - name: "Who's mining our cloud?"
-  value: 100
-  type: standard
+  initial: 100
+  minimum: 20
+  decay: 50
+  type: dynamic
   state: visible
   description: |
     ## Scenario
@@ -38,8 +40,10 @@ challenges:
   - value: cryptomining
 
 - name: "Assumed Identity"
-  value: 150
-  type: standard
+  initial: 150
+  minimum: 30
+  decay: 50
+  type: dynamic
   state: visible
   description: |
     ## Scenario
@@ -74,8 +78,10 @@ challenges:
   - value: aws
 
 - name: "Red-flagged connection"
-  value: 100
-  type: standard
+  initial: 100
+  minimum: 20
+  decay: 50
+  type: dynamic
   state: visible
   description: |
     ## Scenario
@@ -110,8 +116,10 @@ challenges:
   - value: threat-intel
 
 - name: "Command & Control channel"
-  value: 200
-  type: standard
+  initial: 200
+  minimum: 40
+  decay: 50
+  type: dynamic
   state: visible
   description: |
     ## Scenario
@@ -151,8 +159,10 @@ challenges:
   - value: reverse-shell
 
 - name: "Composite threat score"
-  value: 250
-  type: standard
+  initial: 250
+  minimum: 50
+  decay: 50
+  type: dynamic
   state: visible
   description: |
     ## Scenario

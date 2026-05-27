@@ -2,8 +2,10 @@
 challenges:
 
 - name: "Top of the vuln pile"
-  value: 100
-  type: standard
+  initial: 100
+  minimum: 20
+  decay: 50
+  type: dynamic
   state: visible
   description: |
     ## Scenario
@@ -34,8 +36,10 @@ challenges:
   - value: vulnerability
 
 - name: "Kernel panic"
-  value: 150
-  type: standard
+  initial: 150
+  minimum: 30
+  decay: 50
+  type: dynamic
   state: visible
   description: |
     ## Scenario
@@ -71,8 +75,10 @@ challenges:
   - value: kernel
 
 - name: "Fix me first"
-  value: 200
-  type: standard
+  initial: 200
+  minimum: 40
+  decay: 50
+  type: dynamic
   state: visible
   description: |
     ## Scenario
@@ -103,8 +109,10 @@ challenges:
   - value: aws
 
 - name: "CVSS score decoder"
-  value: 150
-  type: standard
+  initial: 150
+  minimum: 30
+  decay: 50
+  type: dynamic
   state: visible
   description: |
     ## Scenario
@@ -134,8 +142,10 @@ challenges:
   - value: cvss
 
 - name: "Agent vs Agentless"
-  value: 100
-  type: standard
+  initial: 100
+  minimum: 20
+  decay: 50
+  type: dynamic
   state: visible
   description: |
     ## Scenario

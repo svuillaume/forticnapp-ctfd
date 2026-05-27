@@ -1,0 +1,5 @@
+flask>=3.0
+flask-cors>=4.0
+requests>=2.31
+pyyaml>=6.0
+jinja2>=3.1

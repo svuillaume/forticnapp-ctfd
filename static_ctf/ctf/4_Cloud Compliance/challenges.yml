@@ -2,8 +2,10 @@
 challenges:
 
 - name: "Open door policy (the wrong kind)"
-  value: 150
-  type: standard
+  initial: 150
+  minimum: 30
+  decay: 50
+  type: dynamic
   state: visible
   description: |
     ## Scenario
@@ -39,8 +41,10 @@ challenges:
   - value: security-group
 
 - name: "Root account hygiene"
-  value: 100
-  type: standard
+  initial: 100
+  minimum: 20
+  decay: 50
+  type: dynamic
   state: visible
   description: |
     ## Scenario
@@ -74,8 +78,10 @@ challenges:
   - value: iam
 
 - name: "Access key rotation"
-  value: 125
-  type: standard
+  initial: 125
+  minimum: 25
+  decay: 50
+  type: dynamic
   state: visible
   description: |
     ## Scenario
@@ -106,8 +112,10 @@ challenges:
   - value: iam
 
 - name: "S3 public access — who left the door open?"
-  value: 200
-  type: standard
+  initial: 200
+  minimum: 40
+  decay: 50
+  type: dynamic
   state: visible
   description: |
     ## Scenario
@@ -143,8 +151,10 @@ challenges:
   - value: s3
 
 - name: "CloudTrail everywhere"
-  value: 125
-  type: standard
+  initial: 125
+  minimum: 25
+  decay: 50
+  type: dynamic
   state: visible
   description: |
     ## Scenario
@@ -172,8 +182,10 @@ challenges:
   - value: cloudtrail
 
 - name: "CSPM — what does it stand for?"
-  value: 50
-  type: standard
+  initial: 50
+  minimum: 10
+  decay: 50
+  type: dynamic
   state: visible
   description: |
     ## Scenario

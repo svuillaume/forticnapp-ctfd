@@ -104,23 +104,54 @@ class CTFdClient:
 
     # --- existing challenge lookup --------------------------------------
 
-    def list_challenge_names(self) -> set[str]:
+    def list_challenges(self) -> list[dict[str, Any]]:
         data = self._get("/api/v1/challenges", params={"view": "admin"})
-        return {c["name"] for c in data.get("data", [])}
+        return data.get("data", [])
+
+    def list_challenge_names(self) -> set[str]:
+        return {c["name"] for c in self.list_challenges()}
+
+    def _delete(self, path: str) -> None:
+        r = self.session.delete(f"{self.base_url}{path}", timeout=self.timeout)
+        if not r.ok:
+            log.warning("DELETE %s failed [%d]: %s", path, r.status_code, r.text[:100])
+
+    def purge_dynamic_challenges(self) -> int:
+        """Delete all challenges tagged 'dynamic' (created by the live bridge)."""
+        all_chals = self.list_challenges()
+        deleted = 0
+        for ch in all_chals:
+            cid = ch["id"]
+            try:
+                tags_data = self._get(f"/api/v1/challenges/{cid}/tags")
+                tags = [t.get("value", "") for t in tags_data.get("data", [])]
+                if "dynamic" in tags:
+                    self._delete(f"/api/v1/challenges/{cid}")
+                    log.info("Deleted dynamic challenge [%d]: %s", cid, ch.get("name"))
+                    deleted += 1
+            except Exception as e:
+                log.warning("Could not inspect/delete challenge %d: %s", cid, e)
+        return deleted
 
     # --- create -----------------------------------------------------------
 
+    # CTFd enforces a max challenge name length of 80 characters
+    _MAX_NAME = 80
+
     def create_challenge(self, ch: Challenge) -> int:
         """Create a challenge + its flags + tags + hints. Returns the new id."""
+        name = ch.name
+        if len(name) > self._MAX_NAME:
+            name = name[:self._MAX_NAME - 1] + "…"
         payload = {
-            "name": ch.name,
+            "name": name,
             "category": ch.category,
             "description": ch.description,
             "value": ch.value,
             "type": ch.type,
             "state": ch.state,
         }
-        log.info("POST /api/v1/challenges  name=%r value=%d", ch.name, ch.value)
+        log.info("POST /api/v1/challenges  name=%r value=%d", name, ch.value)
         created = self._post("/api/v1/challenges", payload)
         challenge_id = created["data"]["id"]
 
@@ -193,19 +224,35 @@ class CTFdClient:
 
     # --- bulk -----------------------------------------------------------
 
-    def push_many(self, challenges: list[Challenge]) -> dict[str, int]:
-        existing = self.list_challenge_names()
+    def push_many(self, challenges: list[Challenge], refresh: bool = False) -> dict[str, int]:
+        if refresh:
+            deleted = self.purge_dynamic_challenges()
+            log.info("Refresh: purged %d existing dynamic challenge(s)", deleted)
+
+        # Build a map of name → id for any remaining challenges
+        all_chals = self.list_challenges()
+        existing_by_name = {c["name"]: c["id"] for c in all_chals}
+
         stats = {"created": 0, "skipped": 0, "failed": 0}
         for ch in challenges:
-            if ch.name in existing:
-                log.info("Skip (already exists): %s", ch.name)
-                stats["skipped"] += 1
-                continue
+            name = ch.name
+            if len(name) > self._MAX_NAME:
+                name = name[:self._MAX_NAME - 1] + "…"
+
+            if name in existing_by_name:
+                if refresh:
+                    # In refresh mode, delete the old one and recreate fresh
+                    self._delete(f"/api/v1/challenges/{existing_by_name[name]}")
+                    log.info("Refresh: replaced existing challenge: %s", name)
+                else:
+                    log.info("Skip (already exists): %s", name)
+                    stats["skipped"] += 1
+                    continue
             try:
                 self.create_challenge(ch)
                 stats["created"] += 1
             except CTFdError as e:
-                log.error("Failed to create %r: %s", ch.name, e)
+                log.error("Failed to create %r: %s", name, e)
                 stats["failed"] += 1
         return stats
 

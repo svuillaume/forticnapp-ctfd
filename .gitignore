@@ -1,8 +1,24 @@
+# Secrets — never commit these
 .env
+*.env
+.env.*
+!.env.example
+
+# Claude Code project settings (may contain approved shell commands with tokens)
+.claude/
+
+# Caddy TLS data (private keys — NEVER commit)
+# These live in Docker named volumes (caddy_data / caddy_config), not on disk.
+# If you ever bind-mount them, add the paths here.
+
+# Python
 __pycache__/
 *.pyc
 *.pyo
 .pytest_cache/
 .venv/
 venv/
+
+# OS
 .DS_Store
+Thumbs.db

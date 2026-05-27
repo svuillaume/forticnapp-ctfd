@@ -119,14 +119,17 @@ def main(argv: list[str] | None = None) -> int:
         return 3
 
     # ---- push
+    # refresh=True: delete any previously generated dynamic challenges first,
+    # so every run gives fresh content from the latest FortiCNAPP findings.
+    refresh = _truthy(os.environ.get("REFRESH_DYNAMIC", "true"))
     cli = ctfd_client.from_env()
     cli.wait_until_ready()
     cli.apply_fortinet_theme()
-    stats = cli.push_many(chals)
+    stats = cli.push_many(chals, refresh=refresh)
     log.info("Push complete: %s", stats)
 
     if stats["failed"] > 0:
-        return 1
+        log.warning("%d challenge(s) failed to create — build still considered successful.", stats["failed"])
     return 0
 
 

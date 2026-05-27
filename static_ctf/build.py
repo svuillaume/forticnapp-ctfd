@@ -225,6 +225,7 @@ def _apply_home_page(ctfd, config: dict) -> None:
             'title': config.get('ctf_name', 'Capture the Flag powered by FortiCNAPP'),
             'content': html,
             'route': 'index',
+            'format': 'html',
             'draft': False,
             'auth_required': False,
         }
