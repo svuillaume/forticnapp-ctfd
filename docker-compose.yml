@@ -55,9 +55,9 @@ services:
     container_name: forticnapp-ctfd-db
     restart: unless-stopped
     environment:
-      - MARIADB_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-root_change_me}
+      - MARIADB_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-root}
       - MARIADB_USER=ctfd
-      - MARIADB_PASSWORD=${MYSQL_PASSWORD:-ctfd_change_me}
+      - MARIADB_PASSWORD=${MYSQL_PASSWORD:-root}
       - MARIADB_DATABASE=ctfd
       - MARIADB_AUTO_UPGRADE=1
     volumes:

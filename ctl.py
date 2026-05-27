@@ -117,35 +117,70 @@ def prompt(label: str, default: str = "", secret: bool = False, required: bool =
 
 def setup_wizard(env: dict) -> dict:
     print(f"\n{BOLD}{CYAN}── Configure .env ───────────────────────────────────────────────{RESET}")
-    print(f"{DIM}Press Enter to keep the current value.{RESET}\n")
+    print(f"{DIM}Press Enter to keep the current value.  Fields marked (auto) are pre-filled.{RESET}")
     changes = {}
 
-    sections = [
-        ("── CTFd", [
-            ("SECRET_KEY",          "Secret key",                          secrets.token_hex(32), False),
-            ("MYSQL_ROOT_PASSWORD", "MariaDB root password",               "FortiCTF-root-2026!", True),
-            ("MYSQL_PASSWORD",      "MariaDB CTFd password",               "FortiCTF-ctfd-2026!", True),
-            ("CTFD_ADMIN_TOKEN",    "CTFd admin token (generate after setup wizard)", "", True),
-        ]),
-        ("── HTTPS / Caddy", [
-            ("FQDN",                "Domain (e.g. samvblogs.duckdns.org)", "",     False),
-            ("HTTPS_PORT",          "HTTPS port (443 or 4443)",            "4443", False),
-            ("DUCKDNS_TOKEN",       "DuckDNS token",                       "",     True),
-        ]),
-        ("── FortiCNAPP API  (Live CTF mode)", [
-            ("FORTICNAPP_ACCOUNT",    "Account name (e.g. acme-prod)",     "", False),
-            ("FORTICNAPP_SUBACCOUNT", "Sub-account  (leave blank if none)","", False),
-            ("FORTICNAPP_API_KEY_ID", "API Key ID",                        "", True),
-            ("FORTICNAPP_API_SECRET", "API Secret",                        "", True),
-        ]),
-    ]
+    # ── Section 1: CTFd internal settings ─────────────────────────────────────
+    print(f"\n{BOLD}1 / 3  CTFd internal settings{RESET}")
 
-    for section_title, fields in sections:
-        print(f"\n  {BOLD}{CYAN}{section_title}{RESET}")
-        for key, label, default, secret in fields:
-            current = env.get(key, "")
-            val = prompt(label, default=current or default, secret=secret)
-            changes[key] = val
+    # SECRET_KEY — auto-generate, never shown to end users
+    sk = env.get("SECRET_KEY", "")
+    if not sk or sk == "change_me_secret_key":
+        sk = secrets.token_hex(32)
+        print(f"  {DIM}CTFd Flask session key — auto-generated random string, never share this{RESET}")
+        changes["SECRET_KEY"] = sk
+        print(f"  SECRET_KEY  {DIM}(auto-generated ✓){RESET}")
+    else:
+        print(f"  SECRET_KEY  {DIM}(already set ✓){RESET}")
+
+    print(f"\n  {DIM}MariaDB passwords — used internally between containers, never exposed externally{RESET}")
+    changes["MYSQL_ROOT_PASSWORD"] = prompt(
+        "MariaDB ROOT password  (database admin, internal only)",
+        default=env.get("MYSQL_ROOT_PASSWORD") or "root", secret=True)
+    changes["MYSQL_PASSWORD"] = prompt(
+        "MariaDB CTFd password  (app db user, internal only)",
+        default=env.get("MYSQL_PASSWORD") or "root", secret=True)
+
+    print(f"\n  {DIM}CTFd admin API token — generate this AFTER completing the CTFd setup wizard:{RESET}")
+    print(f"  {DIM}  CTFd → Admin Panel → Settings → Tokens → Generate{RESET}")
+    changes["CTFD_ADMIN_TOKEN"] = prompt(
+        "CTFd admin API token   (starts with ctfd_...)",
+        default=env.get("CTFD_ADMIN_TOKEN", ""), secret=True)
+
+    # ── Section 2: HTTPS ───────────────────────────────────────────────────────
+    print(f"\n{BOLD}2 / 3  HTTPS  (skip if running HTTP only){RESET}")
+
+    print(f"  {DIM}Your DuckDNS subdomain — e.g. samvblogs.duckdns.org{RESET}")
+    changes["FQDN"] = prompt(
+        "FQDN  (your public domain name)",
+        default=env.get("FQDN", ""))
+
+    print(f"  {DIM}TCP port for CTFd HTTPS — 443 is standard, 4443 avoids needing root{RESET}")
+    changes["HTTPS_PORT"] = prompt(
+        "HTTPS port             (443 or 4443)",
+        default=env.get("HTTPS_PORT") or "4443")
+
+    print(f"  {DIM}DuckDNS token — log in at duckdns.org, your token is at the top of the page{RESET}")
+    changes["DUCKDNS_TOKEN"] = prompt(
+        "DuckDNS token          (for Let's Encrypt cert — leave blank to skip HTTPS)",
+        default=env.get("DUCKDNS_TOKEN", ""), secret=True)
+
+    # ── Section 3: FortiCNAPP API ──────────────────────────────────────────────
+    print(f"\n{BOLD}3 / 3  FortiCNAPP API credentials  (Live CTF mode only — skip if using CTF Lab){RESET}")
+    print(f"  {DIM}Get these from: FortiCNAPP console → Settings → API Keys → Create New{RESET}")
+
+    changes["FORTICNAPP_ACCOUNT"] = prompt(
+        "Account name           (subdomain only: acme-prod.lacework.net → acme-prod)",
+        default=env.get("FORTICNAPP_ACCOUNT", ""))
+    changes["FORTICNAPP_SUBACCOUNT"] = prompt(
+        "Sub-account            (leave blank if not using sub-accounts)",
+        default=env.get("FORTICNAPP_SUBACCOUNT", ""))
+    changes["FORTICNAPP_API_KEY_ID"] = prompt(
+        "API Key ID             (from downloaded JSON: field 'keyId')",
+        default=env.get("FORTICNAPP_API_KEY_ID", ""), secret=True)
+    changes["FORTICNAPP_API_SECRET"] = prompt(
+        "API Secret             (from downloaded JSON: field 'secret')",
+        default=env.get("FORTICNAPP_API_SECRET", ""), secret=True)
 
     write_env(changes)
     print(f"\n{GREEN}✅  .env saved.{RESET}")

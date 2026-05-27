@@ -79,81 +79,52 @@ Browser
 
 ## Quick Start
 
-### 1 — Configure
+Everything is driven by a single control script — no manual file editing needed.
+
+### 1 — Run the control script
 
 ```bash
-cp .env.example .env
+python ctl.py
 ```
 
-Edit `.env` — only three values are needed to get started:
+On first run it detects a missing `.env` and launches the setup wizard automatically.
 
-```dotenv
-# Required — any random string
-SECRET_KEY=any-strong-random-string
+The wizard walks through **3 sections**:
 
-# Fill in after step 3 (CTFd setup wizard)
-CTFD_ADMIN_TOKEN=
+| Section | What it asks |
+|---|---|
+| **CTFd internal** | DB passwords (default `root`/`root`), CTFd admin token |
+| **HTTPS** | Your FQDN, HTTPS port (default `4443`), DuckDNS token |
+| **FortiCNAPP API** | Account, Key ID, Secret — for Live CTF mode only |
 
-# For HTTPS only (optional)
-DUCKDNS_TOKEN=your-duckdns-token
-```
+> The CTFd admin token does not exist yet at this point — leave it blank and fill it in after step 3.  
+> Press **`s`** at any time to re-open the wizard and update values.
 
-> **FortiCNAPP API credentials** are entered directly in the web UI when you click
-> **Load Live Challenges** — no need to store them in `.env`.
+### 2 — First boot
 
-### 2 — Start the stack
+Choose **option 1** (First boot) in the menu. This starts CTFd only.
 
-```bash
-# HTTP only (quick demo / local)
-docker compose up -d db cache ctfd trigger
-
-# HTTPS (production / event)
-docker compose up -d db cache ctfd trigger caddy
-```
-
-Wait ~15 seconds, then open:
-- **HTTP**: `http://localhost:8000`
-- **HTTPS**: `https://your-domain.duckdns.org:4443`
-
-### 3 — Complete the CTFd setup wizard
-
-1. Enter your event name (e.g. *Capture the Flag powered by FortiCNAPP*)
-2. Create an admin user — **remember these credentials**
-3. Choose **Users** or **Teams** scoring mode
+Open **http://localhost:8000** and complete the setup wizard:
+1. Enter your event name
+2. Create an admin user — remember these credentials
+3. Choose **Users** or **Teams** mode
 4. Click **Finish Setup**
 
-### 4 — Generate an admin API token
+### 3 — Generate the admin API token
 
 **Admin Panel → Settings → Tokens → Generate**
 
-Paste it into `.env`:
+Copy the token (`ctfd_...`), then press **`s`** in the control script and paste it into **CTFd admin API token**.
 
-```dotenv
-CTFD_ADMIN_TOKEN=ctfd_xxxxxxxxxxxxxxxx
-```
+### 4 — Start
 
-Then restart the trigger service so it picks up the new token:
+Choose **option 1** again (START). The script automatically:
+- Uses **HTTPS** with Caddy if a cert exists or `DUCKDNS_TOKEN` is set
+- Falls back to **HTTP** on `localhost:8000` otherwise
 
-```bash
-docker compose restart trigger
-```
+### 5 — Load challenges
 
-### 5 — Load challenges from the home page
-
-Open the CTFd home page. You will see two cards:
-
-| Card | What it does |
-|---|---|
-| **CTF Lab** | Loads 21 pre-authored YAML challenges (no API needed) |
-| **Live CTF** | Prompts for FortiCNAPP credentials, then generates challenges from live data |
-
-Click **Load Lab Challenges** or **Load Live Challenges**, wait for the status to turn green, then click **Start Challenges**.
-
-> **CLI alternative:** you can also run the bridges directly:
-> ```bash
-> docker compose run --rm bridge-static   # CTF Lab
-> docker compose run --rm bridge          # Live CTF
-> ```
+Open the CTFd home page — use the **CTF Lab** or **Live CTF** cards to load challenges, then click **Start Challenges**.
 
 ---
 
