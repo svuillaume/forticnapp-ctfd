@@ -1,0 +1,265 @@
+/*
+ * FortiCNAPP CTF — Fortinet Brand Theme
+ * Primary Red : #DA291C  (Pantone 485 C)
+ * Black       : #000000  (Pantone Black 6 C)
+ * White       : #FFFFFF
+ * Dark surface: #1A1A1A
+ * Mid surface : #2C2C2C
+ * Subtle red  : #F5E6E5  (tint for backgrounds)
+ */
+
+/* ── Fonts ──────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  --fort-red:       #DA291C;
+  --fort-red-dark:  #B01E12;
+  --fort-red-tint:  #F5E6E5;
+  --fort-black:     #000000;
+  --fort-dark:      #1A1A1A;
+  --fort-mid:       #2C2C2C;
+  --fort-gray:      #6B6B6B;
+  --fort-light:     #F4F4F4;
+  --fort-white:     #FFFFFF;
+}
+
+/* ── Base ───────────────────────────────────────────────── */
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: var(--fort-light);
+  color: var(--fort-dark);
+}
+
+/* ── Navbar ─────────────────────────────────────────────── */
+.navbar {
+  background-color: var(--fort-black) !important;
+  border-bottom: 3px solid var(--fort-red);
+  padding: 0.6rem 1rem;
+}
+
+.navbar-brand {
+  color: var(--fort-white) !important;
+  font-weight: 700;
+  font-size: 1.2rem;
+  letter-spacing: 0.02em;
+}
+
+.navbar-brand::before {
+  content: '';
+  display: inline-block;
+  width: 22px;
+  height: 22px;
+  margin-right: 8px;
+  vertical-align: middle;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='4' fill='%23DA291C'/%3E%3Ctext x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Inter,sans-serif' font-weight='700' font-size='22' fill='white'%3EF%3C/text%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+}
+
+.navbar-nav .nav-link {
+  color: rgba(255,255,255,0.85) !important;
+  font-weight: 500;
+  transition: color 0.15s;
+}
+
+.navbar-nav .nav-link:hover,
+.navbar-nav .nav-link.active {
+  color: var(--fort-red) !important;
+}
+
+/* ── Hero / Jumbotron ───────────────────────────────────── */
+.jumbotron {
+  background: linear-gradient(135deg, var(--fort-black) 0%, var(--fort-mid) 100%);
+  color: var(--fort-white);
+  border-radius: 0;
+  border-bottom: 4px solid var(--fort-red);
+  padding: 3rem 2rem;
+}
+
+.jumbotron h1,
+.jumbotron .display-4 {
+  color: var(--fort-white);
+  font-weight: 700;
+}
+
+.jumbotron p,
+.jumbotron .lead {
+  color: rgba(255,255,255,0.75);
+}
+
+/* ── Buttons ────────────────────────────────────────────── */
+.btn-primary {
+  background-color: var(--fort-red) !important;
+  border-color: var(--fort-red) !important;
+  color: var(--fort-white) !important;
+  font-weight: 600;
+  transition: background-color 0.15s, transform 0.1s;
+}
+
+.btn-primary:hover,
+.btn-primary:focus {
+  background-color: var(--fort-red-dark) !important;
+  border-color: var(--fort-red-dark) !important;
+  transform: translateY(-1px);
+}
+
+.btn-outline-primary {
+  color: var(--fort-red) !important;
+  border-color: var(--fort-red) !important;
+}
+
+.btn-outline-primary:hover {
+  background-color: var(--fort-red) !important;
+  color: var(--fort-white) !important;
+}
+
+.btn-success {
+  background-color: #1a7a3c !important;
+  border-color: #1a7a3c !important;
+}
+
+/* ── Cards ──────────────────────────────────────────────── */
+.card {
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.card:hover {
+  box-shadow: 0 4px 16px rgba(218,41,28,0.12);
+  transform: translateY(-2px);
+}
+
+.card-header {
+  background-color: var(--fort-black) !important;
+  color: var(--fort-white) !important;
+  font-weight: 600;
+  border-bottom: 2px solid var(--fort-red);
+}
+
+/* ── Category badge colours ─────────────────────────────── */
+.badge-category,
+.badge {
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+/* Map CTFd category colours to Fortinet palette */
+[data-category="Alert Triage"]       { background-color: var(--fort-red)   !important; color: #fff !important; }
+[data-category="Host Security"]      { background-color: #8B0000            !important; color: #fff !important; }
+[data-category="Container Security"] { background-color: #2C2C2C            !important; color: #fff !important; }
+[data-category="Cloud Compliance"]   { background-color: #4A0000            !important; color: #fff !important; }
+
+/* ── Scoreboard / tables ────────────────────────────────── */
+.table thead th {
+  background-color: var(--fort-black);
+  color: var(--fort-white);
+  border-color: var(--fort-red);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+}
+
+.table-striped tbody tr:nth-of-type(odd) {
+  background-color: var(--fort-red-tint);
+}
+
+.table tbody tr:hover {
+  background-color: rgba(218,41,28,0.08) !important;
+}
+
+/* Rank #1 highlight */
+.table tbody tr:first-child td {
+  font-weight: 700;
+  color: var(--fort-red);
+}
+
+/* ── Scoreboard graph ───────────────────────────────────── */
+.ct-series-a .ct-line,
+.ct-series-a .ct-point {
+  stroke: var(--fort-red) !important;
+}
+
+/* ── Challenge modal / flags ────────────────────────────── */
+.challenge-window .modal-header {
+  background-color: var(--fort-black);
+  color: var(--fort-white);
+  border-bottom: 3px solid var(--fort-red);
+}
+
+.challenge-window .modal-title {
+  font-weight: 700;
+}
+
+.challenge-window .modal-footer .btn-primary {
+  min-width: 120px;
+}
+
+/* Flag input */
+#answer-input,
+input[name="submission"] {
+  border: 2px solid #ccc;
+  font-family: 'Courier New', monospace;
+  font-size: 1rem;
+  transition: border-color 0.15s;
+}
+
+#answer-input:focus,
+input[name="submission"]:focus {
+  border-color: var(--fort-red) !important;
+  box-shadow: 0 0 0 3px rgba(218,41,28,0.15) !important;
+}
+
+/* Correct / incorrect flash */
+.alert-success {
+  background-color: #e8f5e9;
+  border-left: 4px solid #2e7d32;
+}
+
+.alert-danger {
+  background-color: #fdecea;
+  border-left: 4px solid var(--fort-red);
+}
+
+/* ── Sidebar / category list ────────────────────────────── */
+#challenge-list .category-header {
+  background-color: var(--fort-black);
+  color: var(--fort-white);
+  padding: 0.5rem 1rem;
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-left: 4px solid var(--fort-red);
+}
+
+/* ── Footer ─────────────────────────────────────────────── */
+footer {
+  background-color: var(--fort-black) !important;
+  color: rgba(255,255,255,0.5) !important;
+  border-top: 3px solid var(--fort-red);
+  font-size: 0.82rem;
+}
+
+footer a {
+  color: var(--fort-red) !important;
+}
+
+/* ── Notifications / toasts ─────────────────────────────── */
+.notification {
+  border-left: 4px solid var(--fort-red);
+}
+
+/* ── Login / register page ──────────────────────────────── */
+.login-card,
+.register-card {
+  border-top: 4px solid var(--fort-red);
+}
+
+/* ── Scrollbar (WebKit) ─────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--fort-light); }
+::-webkit-scrollbar-thumb { background: var(--fort-red); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--fort-red-dark); }

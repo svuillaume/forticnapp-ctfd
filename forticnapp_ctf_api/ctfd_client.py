@@ -148,6 +148,46 @@ class CTFdClient:
 
         return challenge_id
 
+    # --- branding -------------------------------------------------------
+
+    FORTINET_CSS_PATH = "/app/forticnapp_ctf_api/theme/fortinet.css"
+
+    def apply_fortinet_theme(self) -> None:
+        """Push Fortinet brand CSS + event name to CTFd appearance settings."""
+        css = ""
+        # Try reading the CSS from the mounted theme file
+        import pathlib
+        for candidate in (
+            self.FORTINET_CSS_PATH,
+            "/app/theme/fortinet.css",
+            "/opt/CTFd/CTFd/themes/core/static/custom/fortinet.css",
+        ):
+            p = pathlib.Path(candidate)
+            if p.exists():
+                css = p.read_text()
+                log.info("Applying Fortinet theme CSS from %s", candidate)
+                break
+
+        payload: dict[str, str] = {
+            "ctf_name": "FortiCNAPP Cloud Defender Challenge",
+            "ctf_description": "Triage real cloud threats. Powered by FortiCNAPP.",
+        }
+        if css:
+            payload["css"] = css
+
+        try:
+            r = self.session.patch(
+                f"{self.base_url}/api/v1/configs",
+                json=payload,
+                timeout=self.timeout,
+            )
+            if r.ok:
+                log.info("Fortinet theme applied (CSS=%d chars)", len(css))
+            else:
+                log.warning("Theme apply failed [%d]: %s", r.status_code, r.text[:200])
+        except Exception as e:
+            log.warning("Could not apply theme: %s", e)
+
     # --- bulk -----------------------------------------------------------
 
     def push_many(self, challenges: list[Challenge]) -> dict[str, int]:

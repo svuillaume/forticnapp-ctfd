@@ -121,6 +121,7 @@ def main(argv: list[str] | None = None) -> int:
     # ---- push
     cli = ctfd_client.from_env()
     cli.wait_until_ready()
+    cli.apply_fortinet_theme()
     stats = cli.push_many(chals)
     log.info("Push complete: %s", stats)
 

@@ -1,4 +1,17 @@
+<div align="center">
+
+<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/62/Fortinet_logo.svg/320px-Fortinet_logo.svg.png" alt="Fortinet" width="200"/>
+
 # FortiCNAPP CTF
+
+![Fortinet Red](https://img.shields.io/badge/Fortinet-DA291C?style=flat&logo=fortinet&logoColor=white)
+![CTFd](https://img.shields.io/badge/CTFd-3.7.5-000000?style=flat&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat&logo=docker&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.12-DA291C?style=flat&logo=python&logoColor=white)
+
+</div>
+
+---
 
 A containerized **Capture-The-Flag** platform that pulls real findings from a
 **FortiCNAPP** tenant, sanitizes them for safe customer demos, and turns them
@@ -250,6 +263,32 @@ docker compose down -v   # ⚠️ WARNING: drops the CTFd database
 docker compose up -d db cache ctfd
 # Redo the wizard and token steps, then re-run the bridge
 ```
+
+---
+
+## Fortinet Branding
+
+The platform ships with a full **Fortinet brand theme** applied automatically.
+
+| Token | Value | Usage |
+|---|---|---|
+| Primary Red | `#DA291C` (Pantone 485 C) | Navbar border, buttons, active states, rank highlights |
+| Black | `#000000` (Pantone Black 6 C) | Navbar background, card headers, table headers |
+| White | `#FFFFFF` | Text on dark surfaces |
+
+**Theme is applied automatically** — every time the bridge runs it calls
+`PATCH /api/v1/configs` to push `theme/fortinet.css` into CTFd's
+appearance settings. No manual steps needed.
+
+To customize further, edit `theme/fortinet.css` and re-run the bridge:
+
+```bash
+docker compose run --rm bridge
+```
+
+The CSS file is also mounted read-only into the CTFd container at
+`/opt/CTFd/CTFd/themes/core/static/custom/fortinet.css` for direct
+reference from custom templates.
 
 ---
 

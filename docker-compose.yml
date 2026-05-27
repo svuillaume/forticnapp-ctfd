@@ -41,6 +41,7 @@ services:
     volumes:
       - ctfd-uploads:/var/uploads
       - ctfd-logs:/var/log/CTFd
+      - ./theme:/opt/CTFd/CTFd/themes/core/static/custom:ro  # Fortinet brand CSS
     depends_on:
       db:
         condition: service_healthy
