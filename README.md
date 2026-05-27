@@ -79,11 +79,31 @@ cd forticnapp-ctfd
 cp .env.example .env
 ```
 
-Edit `.env` with at minimum:
+Edit `.env` — minimum required fields:
 
 ```dotenv
-SECRET_KEY=any-strong-random-string        # required for CTFd to start
+# ── CTFd ──────────────────────────────────────────────────────────────────────
+SECRET_KEY=any-strong-random-string        # required for CTFd to start (any value)
+CTFD_ADMIN_TOKEN=                          # fill in after step 4 below
+
+# ── FortiCNAPP API (dynamic mode only — skip for static mode) ─────────────────
+# Get these from: FortiCNAPP Console → Settings → API Keys → Create New
+# The downloaded JSON file contains keyId, secret, and account.
+FORTICNAPP_ACCOUNT=acme-prod              # subdomain only: acme-prod.lacework.net → acme-prod
+FORTICNAPP_SUBACCOUNT=                    # leave blank unless using sub-accounts
+FORTICNAPP_API_KEY_ID=ACME_1234567890ABCDEF
+FORTICNAPP_API_SECRET=_replace_with_secret_
+
+# ── Options ───────────────────────────────────────────────────────────────────
+MOCK_MODE=false                            # true = use sample_data/*.json (no live API)
+SANITIZE=true                              # ALWAYS true for customer demos
+LOOKBACK_HOURS=72
+MAX_CHALLENGES_PER_CATEGORY=5
+CTF_NAME=Capture the Flag powered by FortiCNAPP
 ```
+
+> **Static mode** (`bridge-static`) does not need any FortiCNAPP credentials —
+> only `SECRET_KEY` and `CTFD_ADMIN_TOKEN` are required.
 
 ### 2 — Start CTFd
 
