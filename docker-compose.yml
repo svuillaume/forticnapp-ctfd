@@ -41,7 +41,8 @@ services:
     volumes:
       - ctfd-uploads:/var/uploads
       - ctfd-logs:/var/log/CTFd
-      - ./theme:/opt/CTFd/CTFd/themes/core/static/custom:ro  # Fortinet brand CSS
+      - ./theme:/opt/CTFd/CTFd/themes/core/static/custom:ro          # core theme CSS (served as static file)
+      - ./theme/admin_base.html:/opt/CTFd/CTFd/themes/admin/templates/base.html:ro  # injects admin dark theme
     depends_on:
       db:
         condition: service_healthy
