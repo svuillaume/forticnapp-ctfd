@@ -120,20 +120,32 @@ def setup_wizard(env: dict) -> dict:
     print(f"{DIM}Press Enter to keep the current value.{RESET}\n")
     changes = {}
 
-    fields = [
-        ("SECRET_KEY",          "Secret key",                          secrets.token_hex(32), False),
-        ("MYSQL_ROOT_PASSWORD", "MariaDB root password",               "FortiCTF-root-2026!", True),
-        ("MYSQL_PASSWORD",      "MariaDB CTFd password",               "FortiCTF-ctfd-2026!", True),
-        ("CTFD_ADMIN_TOKEN",    "CTFd admin token (after wizard)",     "",                    True),
-        ("FQDN",                "Domain (e.g. samvblogs.duckdns.org)", "",                    False),
-        ("HTTPS_PORT",          "HTTPS port (443 or 4443)",            "4443",                False),
-        ("DUCKDNS_TOKEN",       "DuckDNS token (for HTTPS cert)",      "",                    True),
+    sections = [
+        ("── CTFd", [
+            ("SECRET_KEY",          "Secret key",                          secrets.token_hex(32), False),
+            ("MYSQL_ROOT_PASSWORD", "MariaDB root password",               "FortiCTF-root-2026!", True),
+            ("MYSQL_PASSWORD",      "MariaDB CTFd password",               "FortiCTF-ctfd-2026!", True),
+            ("CTFD_ADMIN_TOKEN",    "CTFd admin token (generate after setup wizard)", "", True),
+        ]),
+        ("── HTTPS / Caddy", [
+            ("FQDN",                "Domain (e.g. samvblogs.duckdns.org)", "",     False),
+            ("HTTPS_PORT",          "HTTPS port (443 or 4443)",            "4443", False),
+            ("DUCKDNS_TOKEN",       "DuckDNS token",                       "",     True),
+        ]),
+        ("── FortiCNAPP API  (Live CTF mode)", [
+            ("FORTICNAPP_ACCOUNT",    "Account name (e.g. acme-prod)",     "", False),
+            ("FORTICNAPP_SUBACCOUNT", "Sub-account  (leave blank if none)","", False),
+            ("FORTICNAPP_API_KEY_ID", "API Key ID",                        "", True),
+            ("FORTICNAPP_API_SECRET", "API Secret",                        "", True),
+        ]),
     ]
 
-    for key, label, default, secret in fields:
-        current = env.get(key, "")
-        val = prompt(label, default=current or default, secret=secret)
-        changes[key] = val
+    for section_title, fields in sections:
+        print(f"\n  {BOLD}{CYAN}{section_title}{RESET}")
+        for key, label, default, secret in fields:
+            current = env.get(key, "")
+            val = prompt(label, default=current or default, secret=secret)
+            changes[key] = val
 
     write_env(changes)
     print(f"\n{GREEN}✅  .env saved.{RESET}")
@@ -218,7 +230,38 @@ def build_menu(env: dict) -> str:
 
 # ── Actions ────────────────────────────────────────────────────────────────────
 
+def check_docker() -> bool:
+    """Return True if Docker is reachable. Print fix instructions if not."""
+    try:
+        r = subprocess.run(["docker", "info"], capture_output=True, timeout=5)
+        if r.returncode == 0:
+            return True
+        err = r.stderr.decode()
+    except FileNotFoundError:
+        err = "docker not found"
+    except Exception as e:
+        err = str(e)
+
+    if "permission denied" in err.lower():
+        print(f"""
+{RED}{BOLD}Docker permission denied.{RESET}
+Your user is not in the docker group. Fix with:
+
+  {BOLD}sudo usermod -aG docker $USER{RESET}
+  {BOLD}newgrp docker{RESET}          {DIM}# apply without logging out{RESET}
+
+Then re-run this script.
+""")
+    elif "not found" in err.lower():
+        print(f"\n{RED}Docker not found.{RESET} Install Docker Desktop or Docker Engine first.\n")
+    else:
+        print(f"\n{RED}Docker not reachable:{RESET} {err[:120]}\n")
+    return False
+
+
 def run(cmd: list[str]) -> None:
+    if not check_docker():
+        return
     print(f"\n{DIM}▶ {' '.join(cmd)}{RESET}\n")
     try:
         subprocess.run(cmd, check=False)
@@ -255,6 +298,10 @@ def start(env: dict) -> None:
 
 def main() -> None:
     os.chdir(ROOT)
+
+    # Docker reachability check (warn but don't block — user may fix and retry)
+    check_docker()
+
     env = read_env()
 
     # First run — no .env or placeholder key
