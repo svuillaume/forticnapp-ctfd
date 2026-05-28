@@ -395,34 +395,51 @@ async function resetMode(mode) {
 }
 
 async function _pollResetStatus(btn) {
-  let attempts = 0;
+  let attempts    = 0;
+  let netErrors   = 0;
+  const MAX_ATTEMPTS  = 45;   // 45 × 4s = 3 min max
+  const MAX_NET_ERRS  = 5;    // allow 5 consecutive network errors before giving up
+  // Wait long enough for the runner thread to flip status to 'running'
+  // then the reset itself (delete N + create 5 + theme) — initial delay 4s
+  const INITIAL_DELAY = 4000;
+
   async function check() {
     attempts++;
     try {
-      const resp = await fetch(TRIGGER_URL + '/status/reset');
+      const resp = await fetch(TRIGGER_URL + '/status/reset', { cache: 'no-store' });
       const data = await resp.json();
+      netErrors = 0;   // reset error counter on any successful fetch
+
       if (data.status === 'success') {
         showToast('✅  Reset complete — 5 random CNAPP questions loaded. Reloading…', 'success');
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-trash-alt"></i> Reset';
         setTimeout(() => window.location.reload(), 1800);
       } else if (data.status === 'error') {
-        showToast('❌  Reset failed. Check admin logs.', 'error');
+        showToast('❌  Reset failed. Check trigger logs.', 'error');
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-trash-alt"></i> Reset';
-      } else if (attempts < 40) {
+      } else if (attempts < MAX_ATTEMPTS) {
+        // 'running' or 'idle' — keep polling
         setTimeout(check, 4000);
       } else {
-        showToast('⏱  Reset timed out.', 'warn');
+        showToast('⏱  Reset timed out — try again or check trigger logs.', 'warn');
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-trash-alt"></i> Reset';
       }
-    } catch {
-      btn.disabled = false;
-      btn.innerHTML = '<i class="fas fa-trash-alt"></i> Reset';
+    } catch (err) {
+      netErrors++;
+      if (netErrors < MAX_NET_ERRS) {
+        // Transient network error — retry silently
+        setTimeout(check, 4000);
+      } else {
+        showToast('⚡  Cannot reach trigger service. Check: docker compose logs trigger', 'error');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-trash-alt"></i> Reset';
+      }
     }
   }
-  setTimeout(check, 2500);
+  setTimeout(check, INITIAL_DELAY);
 }
 
 // ── Credentials modal ─────────────────────────────────────────────────────────
