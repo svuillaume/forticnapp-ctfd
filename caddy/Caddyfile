@@ -1,15 +1,15 @@
 {
-    # Use Caddy's built-in local CA for all certs (no Let's Encrypt)
+    # Use Caddy's built-in local CA for all certs (no Let's Encrypt, no DuckDNS required)
     local_certs
 
     # Caddy admin API — internal health checks only
     admin 0.0.0.0:2019
 }
 
-# ── CTFd ──────────────────────────────────────────────────────────────────────
-# FQDN defaults to "localhost" (see docker-compose).
-# Caddy auto-issues a self-signed cert for whatever hostname is set.
-{env.FQDN} {
+# ── CTFd — matches ANY hostname on port 443 ───────────────────────────────────
+# Works for: https://localhost, https://IP, https://your-fqdn.com, all of them.
+# Caddy auto-issues a self-signed cert for every hostname presented.
+:443 {
 
     tls internal
 
@@ -25,20 +25,26 @@
     respond /caddy-health 200
 
     reverse_proxy ctfd:8000 {
-        header_up Host        {upstream_hostport}
-        header_up X-Real-IP   {remote_host}
-        header_up Connection  {http.request.header.Connection}
-        header_up Upgrade     {http.request.header.Upgrade}
+        header_up X-Real-IP          {remote_host}
+        header_up X-Forwarded-For    {remote_host}
+        header_up X-Forwarded-Proto  https
+        header_up Connection         {http.request.header.Connection}
+        header_up Upgrade            {http.request.header.Upgrade}
     }
 }
 
+# ── HTTP → HTTPS redirect ─────────────────────────────────────────────────────
+:80 {
+    redir https://{host}{uri} permanent
+}
+
 # ── Trigger service — port 5555 ───────────────────────────────────────────────
-{env.FQDN}:5555 {
+:5555 {
 
     tls internal
 
     header {
-        Access-Control-Allow-Origin  "https://{env.FQDN}"
+        Access-Control-Allow-Origin  *
         Access-Control-Allow-Methods "GET, POST, OPTIONS"
         Access-Control-Allow-Headers "Content-Type"
         -Server

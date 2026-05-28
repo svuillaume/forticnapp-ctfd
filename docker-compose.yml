@@ -39,6 +39,7 @@ services:
       - ACCESS_LOG=-
       - ERROR_LOG=-
       - REVERSE_PROXY=true
+      - APPLICATION_ROOT=/
     volumes:
       - ctfd-uploads:/var/uploads
       - ctfd-logs:/var/log/CTFd
@@ -174,9 +175,10 @@ services:
     networks:
       - ctf-net
 
-  # ── Caddy: HTTPS reverse proxy (Let's Encrypt via DuckDNS DNS-01) ──────────
-  # Optional — only needed for HTTPS. Requires DUCKDNS_TOKEN in .env.
-  # See README § HTTPS Setup for instructions.
+  # ── Caddy: HTTPS reverse proxy ────────────────────────────────────────────────
+  # Serves on :443 for ANY hostname — localhost, IP, FQDN all work.
+  # Uses Caddy's built-in local CA (self-signed). Accept the browser warning once.
+  # HTTP :80 redirects to HTTPS automatically.
   caddy:
     build:
       context: ./caddy
@@ -186,10 +188,8 @@ services:
     restart: unless-stopped
     ports:
       - "80:80"
-      - "443:443"    # CTFd HTTPS
-      - "5555:5555"  # Trigger HTTPS
-    environment:
-      FQDN: ${FQDN:-localhost}
+      - "443:443"    # CTFd HTTPS (any hostname)
+      - "5555:5555"  # Trigger HTTPS (any hostname)
     volumes:
       # NEVER delete caddy_data — Let's Encrypt rate-limits to 5 certs/domain/week
       - caddy_data:/data
