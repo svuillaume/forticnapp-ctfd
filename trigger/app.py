@@ -36,8 +36,12 @@ logger = logging.getLogger('trigger')
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
-ADMIN_TOKEN = os.environ.get('CTFD_ADMIN_TOKEN', '')
-CTFD_URL    = os.environ.get('CTFD_API_URL', 'http://ctfd:8000')
+ADMIN_TOKEN   = os.environ.get('CTFD_ADMIN_TOKEN', '')
+CTFD_URL      = os.environ.get('CTFD_API_URL', 'http://ctfd:8000')
+ADMIN_PASS    = os.environ.get('CTFD_ADMIN_PASSWORD', 'admin')
+ADMIN_NAME    = os.environ.get('CTFD_ADMIN_NAME', 'admin')
+ADMIN_EMAIL   = os.environ.get('CTFD_ADMIN_EMAIL', 'admin@ctf.local')
+CTF_NAME_ENV  = os.environ.get('CTF_NAME', 'Capture the Flag powered by FortiCNAPP')
 
 # ── State ─────────────────────────────────────────────────────────────────────
 
@@ -680,6 +684,108 @@ def run(mode):
     abort(400, description='Unknown mode. Use static or dynamic.')
 
 
+# ── First-boot auto-configure (setup wizard + token) ─────────────────────────
+
+def _auto_configure() -> str:
+    """Complete CTFd setup wizard and return a fresh admin token, or '' on failure.
+
+    Safe to call even if CTFd is already set up — the /setup endpoint redirects
+    away and the login/token steps still succeed.
+    """
+    import http.cookiejar, urllib.parse, urllib.request as ureq
+
+    if not ADMIN_PASS:
+        logger.warning('Auto-configure: CTFD_ADMIN_PASSWORD not set — skipping.')
+        return ''
+
+    jar    = http.cookiejar.CookieJar()
+    opener = ureq.build_opener(ureq.HTTPCookieProcessor(jar))
+
+    def _get_nonce(url: str) -> str:
+        try:
+            body = opener.open(url, timeout=10).read().decode(errors='replace')
+            import re
+            m = re.search(r'name=["\']nonce["\'][^>]*value=["\']([^"\']+)["\']', body)
+            if not m:
+                m = re.search(r'value=["\']([^"\']+)["\'][^>]*name=["\']nonce["\']', body)
+            return m.group(1) if m else ''
+        except Exception:
+            return ''
+
+    # 1. Complete setup wizard (no-op if already done)
+    nonce = _get_nonce(f'{CTFD_URL}/setup')
+    if nonce:
+        logger.info('Auto-configure: completing CTFd setup wizard…')
+        try:
+            data = urllib.parse.urlencode({
+                'nonce': nonce, 'ctf_name': CTF_NAME_ENV,
+                'name': ADMIN_NAME, 'email': ADMIN_EMAIL,
+                'password': ADMIN_PASS, 'user_mode': 'users',
+            }).encode()
+            opener.open(ureq.Request(
+                f'{CTFD_URL}/setup', data=data,
+                headers={'Content-Type': 'application/x-www-form-urlencoded'},
+            ), timeout=15)
+        except Exception:
+            pass  # redirect after setup is expected
+
+    # 2. Log in
+    nonce = _get_nonce(f'{CTFD_URL}/login')
+    if not nonce:
+        logger.warning('Auto-configure: could not get login nonce.')
+        return ''
+    try:
+        data = urllib.parse.urlencode({
+            'nonce': nonce, 'name': ADMIN_NAME, 'password': ADMIN_PASS,
+        }).encode()
+        opener.open(ureq.Request(
+            f'{CTFD_URL}/login', data=data,
+            headers={'Content-Type': 'application/x-www-form-urlencoded'},
+        ), timeout=10)
+    except Exception:
+        pass  # redirect after login is expected
+
+    # 3. Get CSRF nonce
+    csrf = ''
+    for url in (f'{CTFD_URL}/api/v1/tokens', f'{CTFD_URL}/settings'):
+        try:
+            body = opener.open(url, timeout=10).read().decode(errors='replace')
+            import re, json as _json
+            try:
+                csrf = _json.loads(body).get('data', {}).get('csrfNonce', '')
+            except Exception:
+                pass
+            if not csrf:
+                m = re.search(r'name=["\']nonce["\'][^>]*value=["\']([^"\']+)["\']', body)
+                if not m:
+                    m = re.search(r'value=["\']([^"\']+)["\'][^>]*name=["\']nonce["\']', body)
+                csrf = m.group(1) if m else ''
+            if csrf:
+                break
+        except Exception:
+            pass
+
+    if not csrf:
+        logger.warning('Auto-configure: could not get CSRF nonce.')
+        return ''
+
+    # 4. Create admin token
+    try:
+        import json as _json
+        body = opener.open(ureq.Request(
+            f'{CTFD_URL}/api/v1/tokens',
+            data=_json.dumps({'expiration': None}).encode(),
+            headers={'Content-Type': 'application/json', 'CSRF-Token': csrf},
+        ), timeout=10).read()
+        token = _json.loads(body).get('data', {}).get('value', '')
+        if token:
+            logger.info('Auto-configure: admin token generated.')
+        return token
+    except Exception as exc:
+        logger.warning('Auto-configure: token generation failed: %s', exc)
+        return ''
+
+
 # ── Startup self-heal ────────────────────────────────────────────────────────
 # Runs once in the background when the trigger container starts.
 # 1. Waits for CTFd to be reachable.
@@ -692,32 +798,67 @@ def _startup_selfheal():
     import requests as req_lib
 
     logger.info('Startup self-heal: waiting for CTFd…')
-    # Wait up to 3 minutes for CTFd
+
+    # Step 1 — wait for CTFd HTTP to be up (up to 3 min)
     for attempt in range(36):
         try:
-            r = req_lib.get(f'{CTFD_URL}/api/v1/challenges', timeout=5)
-            if r.ok:
-                chals = r.json().get('data', [])
-                logger.info('Startup self-heal: CTFd ready, %d challenge(s) found.', len(chals))
-
-                # Always apply Fortinet theme + home page
-                ok, log = _run_theme()
-                if ok:
-                    logger.info('Startup self-heal: Fortinet theme applied.')
-                else:
-                    logger.warning('Startup self-heal: theme apply warning: %s', log[-200:])
-
-                # Load 5 random defaults only if DB is empty
-                if len(chals) == 0:
-                    logger.info('Startup self-heal: no challenges — loading 5 random defaults.')
-                    _run_reset()
-                    logger.info('Startup self-heal: default challenges loaded.')
-                return
+            r = req_lib.get(f'{CTFD_URL}/', timeout=5)
+            if r.status_code < 500:
+                break
         except Exception as e:
             logger.debug('Startup self-heal attempt %d: %s', attempt + 1, e)
         time.sleep(5)
+    else:
+        logger.warning('Startup self-heal: CTFd not reachable after 3 min — skipping.')
+        return
 
-    logger.warning('Startup self-heal: CTFd not ready after 3 min — skipping.')
+    # Step 2 — ensure we have a working admin token
+    global ADMIN_TOKEN
+    if not ADMIN_TOKEN:
+        logger.info('Startup self-heal: no token — running auto-configure…')
+        ADMIN_TOKEN = _auto_configure()
+        if not ADMIN_TOKEN:
+            logger.warning('Startup self-heal: auto-configure failed — cannot apply theme or load challenges.')
+            return
+        logger.info('Startup self-heal: token acquired.')
+
+    # Step 3 — verify token works (and get challenge count)
+    for attempt in range(12):
+        try:
+            r = req_lib.get(
+                f'{CTFD_URL}/api/v1/challenges',
+                headers={'Authorization': f'Token {ADMIN_TOKEN}'},
+                timeout=5,
+            )
+            if r.ok:
+                chals = r.json().get('data', [])
+                logger.info('Startup self-heal: CTFd ready, %d challenge(s) found.', len(chals))
+                break
+            elif r.status_code in (401, 403):
+                logger.warning('Startup self-heal: token rejected — trying auto-configure…')
+                ADMIN_TOKEN = _auto_configure()
+                if not ADMIN_TOKEN:
+                    logger.warning('Startup self-heal: could not get valid token — aborting.')
+                    return
+        except Exception as e:
+            logger.debug('Startup self-heal token check %d: %s', attempt + 1, e)
+        time.sleep(5)
+    else:
+        logger.warning('Startup self-heal: CTFd API not responding — skipping.')
+        return
+
+    # Step 4 — always apply Fortinet theme + home page
+    ok, log = _run_theme()
+    if ok:
+        logger.info('Startup self-heal: Fortinet theme applied.')
+    else:
+        logger.warning('Startup self-heal: theme apply warning: %s', log[-200:])
+
+    # Step 5 — load 5 random defaults only if DB is empty
+    if len(chals) == 0:
+        logger.info('Startup self-heal: no challenges — loading 5 random defaults.')
+        _run_reset()
+        logger.info('Startup self-heal: default challenges loaded.')
 
 
 # ── Entry ─────────────────────────────────────────────────────────────────────
