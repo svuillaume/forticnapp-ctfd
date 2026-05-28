@@ -94,7 +94,7 @@ def _wrap_flag(answer: str) -> str:
     return "FLAG{" + answer.strip() + "}"
 
 
-def _safe_name(s: str, limit: int = 60) -> str:
+def _safe_name(s: str, limit: int = 32) -> str:
     s = re.sub(r"\s+", " ", s).strip()
     return s[:limit].rstrip(" .,:-")
 
@@ -120,9 +120,32 @@ def _extract_mitre_technique(alert: dict[str, Any]) -> str | None:
     return None
 
 
+def _alert_ctf_category(alert: dict[str, Any]) -> str:
+    """
+    Map a FortiCNAPP alert to a CTFd challenge category.
+    Uses the FortiCNAPP alertCategory directly so challenges are grouped
+    by their real domain (IAM, CloudActivity, User, etc.).
+    Falls back to 'Alert Triage' if no category is available.
+    """
+    derived = alert.get("derivedFields") or {}
+    info    = alert.get("alertInfo") or {}
+    cat = (
+        alert.get("alertCategory")
+        or derived.get("category")
+        or derived.get("source")
+        or info.get("category")
+        or ""
+    ).strip()
+    return cat if cat else "Alert Triage"
+
+
 def alert_to_challenge(alert: dict[str, Any]) -> Challenge | None:
     """
     Build an Alert Triage challenge from a FortiCNAPP alert.
+    The CTFd category is derived from the alert's own category field
+    (IAM, CloudActivity, User, Composite, etc.) so challenges are grouped
+    by their real domain on the challenge board.
+
     Priority order:
       1. MITRE technique ID  (most educational)
       2. Alert severity
@@ -133,10 +156,20 @@ def alert_to_challenge(alert: dict[str, Any]) -> Challenge | None:
         return None
 
     sev_raw = alert.get("severity", "Medium")
-    sev = sev_raw.capitalize()
-    info = alert.get("alertInfo") or {}
+    sev     = sev_raw.capitalize()
+    info    = alert.get("alertInfo") or {}
     description_text = info.get("description") or alert.get("description") or ""
     derived = alert.get("derivedFields") or {}
+
+    # Resolve the CTFd category from the alert's own category field
+    ctf_category = _alert_ctf_category(alert)
+    category = (
+        alert.get("alertCategory")
+        or derived.get("category")
+        or derived.get("source")
+        or info.get("category")
+        or ""
+    )
 
     # ── variant 1: MITRE technique ───────────────────────────────────────
     mitre = _extract_mitre_technique(alert)
@@ -146,6 +179,7 @@ def alert_to_challenge(alert: dict[str, Any]) -> Challenge | None:
 
 ### Alert
 - **Name**: {name}
+- **Category**: {ctf_category}
 - **Severity**: {sev}
 - **Summary**: {description_text or '_(no summary available)_'}
 
@@ -157,8 +191,8 @@ attributing this activity to? (e.g. `T1078`)
 `FLAG{{T####}}` — technique ID only, no tactic prefix.
 """
         return Challenge(
-            name=f"Alert Triage: {_safe_name(name)}",
-            category="Alert Triage",
+            name=f"{_safe_name(name)}",
+            category=ctf_category,
             description=desc,
             value=_sev_points(sev),
             flags=[Flag(content=_wrap_flag(mitre), type="static")],
@@ -171,23 +205,13 @@ attributing this activity to? (e.g. `T1078`)
         )
 
     # ── variant 2: severity as the answer ────────────────────────────────
-    # Ask the player to identify the severity — always available
-    category = (
-        alert.get("alertCategory")
-        or derived.get("category")
-        or derived.get("source")
-        or info.get("category")
-        or ""
-    )
-
-    # Prefer severity question when we have a nice alert with description
     if description_text and sev.lower() in ("critical", "high", "medium", "low"):
         desc = f"""### Scenario
 {CATEGORY_NARRATIVE['Alert Triage']}
 
 ### Alert
 - **Name**: {name}
-- **Category**: {category or '_(see alert)_'}
+- **Category**: {ctf_category}
 - **Summary**: {description_text}
 
 ### Question
@@ -198,8 +222,8 @@ What **severity** did FortiCNAPP assign to this alert?
 `FLAG{{Severity}}` — capitalise first letter only.
 """
         return Challenge(
-            name=f"Alert Triage: {_safe_name(name)} — severity",
-            category="Alert Triage",
+            name=f"{_safe_name(name)} — sev",
+            category=ctf_category,
             description=desc,
             value=_sev_points(sev),
             flags=[Flag(content=_wrap_flag(sev), type="static", case_insensitive=True)],
@@ -228,14 +252,14 @@ FortiCNAPP categorises every alert. What is the **category** of this alert?
 `FLAG{{CategoryName}}`
 """
         return Challenge(
-            name=f"Alert Triage: {_safe_name(name)}",
-            category="Alert Triage",
+            name=f"{_safe_name(name)}",
+            category=ctf_category,
             description=desc,
             value=_sev_points(sev),
             flags=[Flag(content=_wrap_flag(category), type="static", case_insensitive=True)],
             tags=["forticnapp", "alert", sev.lower(), "dynamic"],
             hints=[
-                "Look at the derivedFields.category field in the FortiCNAPP alert.",
+                "Look at the alertCategory field in the FortiCNAPP alert.",
                 f"The category is: {category}",
             ],
         )
@@ -276,7 +300,7 @@ What is the **CVE identifier** for this vulnerability? (Format: `CVE-YYYY-NNNN`)
 `FLAG{{CVE-YYYY-NNNN}}`
 """
     return Challenge(
-        name=f"Container: {_safe_name(image_repo, 30)} / {pkg} ({cve})",
+        name=f"{_safe_name(image_repo, 20)} · {_safe_name(pkg, 12)} ({cve})",
         category="Container Security",
         description=desc,
         value=_sev_points(sev),
@@ -319,7 +343,7 @@ What is the **CVE identifier** flagged on this host? (Format: `CVE-YYYY-NNNN`)
 `FLAG{{CVE-YYYY-NNNN}}`
 """
     return Challenge(
-        name=f"Host Vuln: {_safe_name(hostname, 35)} / {pkg} ({cve})",
+        name=f"{_safe_name(hostname, 20)} · {_safe_name(pkg, 12)} ({cve})",
         category="Host Security",
         description=desc,
         value=_sev_points(sev),
@@ -372,7 +396,7 @@ What is the **control number**? (Format: `1.2` or `1.2.3`)
 """
         pattern = rf"FLAG\{{\s*{re.escape(control)}(?:\.0)?\s*\}}"
         return Challenge(
-            name=f"Compliance: {_safe_name(title)}",
+            name=f"{_safe_name(title)}",
             category="Cloud Compliance",
             description=desc,
             value=_sev_points(sev),
@@ -409,7 +433,7 @@ Give the short service name (e.g. `EC2`, `S3`, `IAM`, `CloudTrail`).
 """
         pattern = rf"FLAG\{{\s*{re.escape(svc_short)}\s*\}}"
         return Challenge(
-            name=f"Compliance: {_safe_name(title)} — service",
+            name=f"{_safe_name(title)} — svc",
             category="Cloud Compliance",
             description=desc,
             value=_sev_points(sev),
@@ -439,7 +463,7 @@ What **severity** did FortiCNAPP assign to this compliance violation?
 `FLAG{{Severity}}`
 """
         return Challenge(
-            name=f"Compliance: {_safe_name(title)} — severity",
+            name=f"{_safe_name(title)} — sev",
             category="Cloud Compliance",
             description=desc,
             value=_sev_points(sev),
