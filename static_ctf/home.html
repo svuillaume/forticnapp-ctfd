@@ -46,8 +46,9 @@
         <span class="fctf-build-spinner" style="display:none"><i class="fas fa-circle-notch fa-spin"></i> Building…</span>
       </button>
       <div class="fctf-card-actions">
-        <a href="/challenges" id="btn-start-static" class="fctf-btn fctf-btn-primary fctf-btn-disabled">
-          <i class="fas fa-flag pr-2"></i>Start Challenges
+        <a href="/challenges" id="btn-start-static" class="fctf-btn fctf-btn-primary fctf-btn-disabled"
+           title="Click 'Load CTF Lab Challenges' first to enable">
+          <i class="fas fa-lock pr-2" id="icon-start-static"></i>Start Challenges
         </a>
         <button class="fctf-reset-btn" id="btn-reset-static" onclick="resetMode('static')" title="Delete all challenges and reset">
           <i class="fas fa-trash-alt"></i> Reset
@@ -75,8 +76,9 @@
         <span class="fctf-build-spinner" style="display:none"><i class="fas fa-circle-notch fa-spin"></i> Fetching…</span>
       </button>
       <div class="fctf-card-actions">
-        <a href="/challenges" id="btn-start-dynamic" class="fctf-btn fctf-btn-outline fctf-btn-disabled">
-          <i class="fas fa-flag pr-2"></i>Start Challenges
+        <a href="/challenges" id="btn-start-dynamic" class="fctf-btn fctf-btn-outline fctf-btn-disabled"
+           title="Click 'Load Live Challenges' first to enable">
+          <i class="fas fa-lock pr-2" id="icon-start-dynamic"></i>Start Challenges
         </a>
         <button class="fctf-reset-btn fctf-reset-dynamic" id="btn-reset-dynamic" onclick="resetMode('dynamic')" title="Delete all challenges and reset">
           <i class="fas fa-trash-alt"></i> Reset
@@ -294,22 +296,33 @@ function showToast(msg, type) {
 
 // ── Start-Challenges button enable/disable ────────────────────────────────────
 function enableStartBtn(mode) {
-  const btn = document.getElementById('btn-start-' + mode);
-  if (btn) btn.classList.remove('fctf-btn-disabled');
+  const btn  = document.getElementById('btn-start-' + mode);
+  const icon = document.getElementById('icon-start-' + mode);
+  if (!btn) return;
+  btn.classList.remove('fctf-btn-disabled');
+  btn.removeAttribute('title');
+  if (icon) { icon.className = 'fas fa-flag pr-2'; }
 }
 function disableStartBtn(mode) {
-  const btn = document.getElementById('btn-start-' + mode);
-  if (btn) btn.classList.add('fctf-btn-disabled');
+  const btn  = document.getElementById('btn-start-' + mode);
+  const icon = document.getElementById('icon-start-' + mode);
+  if (!btn) return;
+  btn.classList.add('fctf-btn-disabled');
+  const label = mode === 'static' ? "Click 'Load CTF Lab Challenges' first to enable"
+                                  : "Click 'Load Live Challenges' first to enable";
+  btn.setAttribute('title', label);
+  if (icon) { icon.className = 'fas fa-lock pr-2'; }
 }
 function checkExistingChallenges() {
   fetch('/api/v1/challenges')
     .then(r => r.json())
     .then(d => {
       const hasChals = (d.data || []).length > 0;
-      if (hasChals) {
-        enableStartBtn('static');
-        enableStartBtn('dynamic');
-      }
+      const mode = localStorage.getItem('fctf_mode');
+      // Only unlock the Start button for the mode that was explicitly loaded —
+      // default 5-question warm-up (mode=null) keeps both buttons locked.
+      if (hasChals && mode === 'ctf-lab')  enableStartBtn('static');
+      if (hasChals && mode === 'live-ctf') enableStartBtn('dynamic');
       // Show which mode is currently loaded
       _updateModeStatus(hasChals);
     })
