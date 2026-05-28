@@ -436,24 +436,30 @@ def _ctfd_challenge_count(token: str) -> int:
 
 
 def _trigger_reset(env: dict, max_wait: int = 60) -> None:
-    """Call the trigger service /reset endpoint to load 5 random default challenges."""
-    TRIGGER_LOCAL = "http://localhost:5555"
+    """Call the trigger /reset endpoint from *inside* the container (avoids Caddy TLS)."""
+    # Run a one-liner inside the trigger container — localhost:5555 is plain HTTP there.
     deadline = time.time() + max_wait
     while time.time() < deadline:
         try:
-            req = urllib.request.Request(
-                f"{TRIGGER_LOCAL}/reset",
-                data=b"",
-                method="POST",
+            result = subprocess.run(
+                [
+                    "docker", "compose", "exec", "-T", "trigger",
+                    "python3", "-c",
+                    "import urllib.request; r=urllib.request.urlopen("
+                    "urllib.request.Request('http://localhost:5555/reset', data=b''), timeout=30); "
+                    "print(r.read().decode()[:80])",
+                ],
+                capture_output=True, text=True, timeout=35,
             )
-            r = urllib.request.urlopen(req, timeout=10)
-            print(f"{GREEN}✅  5 random default CNAPP questions loading…{RESET}")
-            print(f"{DIM}Open the home page → Load CTF Lab or Load Live Challenges to start the full event.{RESET}")
-            return
+            if result.returncode == 0:
+                print(f"{GREEN}✅  5 random CNAPP questions loading…{RESET}")
+                print(f"{DIM}Open the home page → Load CTF Lab or Load Live Challenges to start.{RESET}")
+                return
         except Exception:
-            print(f"{DIM}  Waiting for trigger service…{RESET}")
-            time.sleep(4)
-    print(f"{YELLOW}⚠  Trigger service not reachable — run Reset from the home page.{RESET}")
+            pass
+        print(f"{DIM}  Waiting for trigger service…{RESET}")
+        time.sleep(4)
+    print(f"{YELLOW}⚠  Trigger not ready yet — hit Reset on the home page for 5 random CNAPP questions.{RESET}")
 
 
 def start(env: dict) -> None:
