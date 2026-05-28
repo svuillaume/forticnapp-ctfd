@@ -141,8 +141,31 @@ def main():
         sys.exit(0)
 
 
+_MODE_BANNER_JS = """
+<script>
+(function(){try{
+  localStorage.setItem('fctf_mode','ctf-lab');
+  function _mb(){
+    if(document.getElementById('_fctf_mode_bar'))return;
+    var p=location.pathname;if(p==='/'||p==='')return;
+    var b=document.createElement('div');b.id='_fctf_mode_bar';
+    b.style.cssText='background:rgba(218,41,28,0.12);border-bottom:2px solid #DA291C;'+
+      'padding:0.4rem 1rem;text-align:center;font-family:Inter,system-ui,sans-serif;'+
+      'font-size:0.78rem;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:#DA291C;';
+    b.innerHTML='&#9724; CTF Lab &nbsp;&mdash;&nbsp; <span style="font-weight:400;text-transform:none;'+
+      'letter-spacing:0;opacity:0.85">21 hand-crafted FortiCNAPP scenarios &nbsp;&bull;&nbsp; '+
+      '<a href="/" style="color:#DA291C;opacity:0.7">&#8592; Back to mode selector</a></span>';
+    var n=document.querySelector('nav.navbar')||document.querySelector('nav');
+    if(n&&n.parentNode)n.parentNode.insertBefore(b,n.nextSibling);
+    else document.body.insertBefore(b,document.body.firstChild);
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',_mb);else _mb();
+}catch(e){}})();
+</script>"""
+
+
 def _apply_theme(ctfd, config: dict) -> None:
-    """Push FortiGuard Labs dark theme CSS to CTFd theme_header.
+    """Push FortiGuard Labs dark theme CSS + mode banner JS to CTFd theme_header.
 
     CTFd's base.html renders {{ Configs.theme_header }} — the 'css' config
     key is stored but never output to the page. CSS must be wrapped in a
@@ -169,7 +192,8 @@ def _apply_theme(ctfd, config: dict) -> None:
         return
 
     payload = {
-        'theme_header': f'<style>\n{css}\n</style>',
+        'theme_header': f'<style>\n{css}\n</style>\n{_MODE_BANNER_JS}',
+        'ctf_name':     'CTF Lab — FortiCNAPP CTF',
     }
     try:
         r = requests.patch(
@@ -182,7 +206,7 @@ def _apply_theme(ctfd, config: dict) -> None:
             timeout=30,
         )
         if r.ok:
-            logger.info('FortiGuard Labs dark theme applied to CTFd.')
+            logger.info('FortiGuard Labs dark theme + CTF Lab banner applied.')
         else:
             logger.warning('Theme apply failed [%d]: %s', r.status_code, r.text[:200])
     except Exception as exc:

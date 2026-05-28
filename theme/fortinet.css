@@ -810,3 +810,70 @@ h2 { font-weight: 600; }
 .badge.bg-warning   { background-color: #7c4d0e !important; color: #fff !important; }
 .badge.badge-secondary,
 .badge.bg-secondary { background-color: var(--bg-elevated) !important; }
+
+/* ── Challenge card text — no truncation, centered ───────── */
+/* Challenge name: allow wrapping, center, full display */
+.challenge-button .challenge-name,
+.challenge-button span:first-child,
+.challenge-button > div:first-child,
+.challenge-card   .challenge-name,
+.challenge-card   .card-title {
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: unset !important;
+  word-break: break-word !important;
+  text-align: center !important;
+  line-height: 1.4 !important;
+}
+
+/* Center all text inside challenge cards */
+.challenge-button,
+.challenge-card {
+  text-align: center !important;
+}
+.challenge-button * { text-align: center !important; }
+
+/* Challenge point value — keep mono style */
+.challenge-button .challenge-value,
+.challenge-button .badge { text-align: center !important; }
+
+/* ── Modal body — scrollable, never clipped ─────────────── */
+.modal-dialog { max-height: 90vh; display: flex; flex-direction: column; }
+.modal-content { max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; }
+.modal-body {
+  overflow-y: auto !important;
+  max-height: 60vh !important;
+  padding: 1.5rem !important;
+}
+/* Ensure description text is never clipped */
+#challenge-id-description,
+.challenge-window-description,
+[id^="challenge-"][id$="-description"] {
+  overflow: visible !important;
+  max-height: none !important;
+  height: auto !important;
+}
+
+/* ── Mode banner (injected by JS on all non-home pages) ─── */
+#_fctf_mode_bar {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  text-align: center;
+  padding: 0.4rem 1rem;
+  position: relative;
+  z-index: 200;
+  transition: opacity 0.3s;
+}
+#_fctf_mode_bar a {
+  color: inherit;
+  text-decoration: none;
+  opacity: 0.75;
+  margin-left: 0.5rem;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+}
+#_fctf_mode_bar a:hover { opacity: 1; text-decoration: underline; }

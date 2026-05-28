@@ -86,6 +86,13 @@
 
   </div>
 
+  <!-- Current mode status banner -->
+  <div id="fctf-mode-status" style="display:none;align-items:center;justify-content:center;
+    padding:0.65rem 1.5rem;margin:0 1rem 1rem;border-radius:8px;border:1.5px solid;
+    font-size:0.88rem;font-weight:500;font-family:Inter,system-ui,sans-serif;
+    gap:0.25rem;">
+  </div>
+
   <!-- Build status toast -->
   <div id="fctf-toast" class="fctf-toast" style="display:none"></div>
 
@@ -290,13 +297,36 @@ function checkExistingChallenges() {
   fetch('/api/v1/challenges')
     .then(r => r.json())
     .then(d => {
-      if ((d.data || []).length > 0) {
+      const hasChals = (d.data || []).length > 0;
+      if (hasChals) {
         enableStartBtn('static');
         enableStartBtn('dynamic');
       }
+      // Show which mode is currently loaded
+      _updateModeStatus(hasChals);
     })
     .catch(() => {});
 }
+
+function _updateModeStatus(hasChals) {
+  const mode = localStorage.getItem('fctf_mode');
+  const el = document.getElementById('fctf-mode-status');
+  if (!el) return;
+  if (!hasChals || !mode) { el.style.display = 'none'; return; }
+  const isLab = (mode === 'ctf-lab');
+  el.style.display = 'flex';
+  el.style.borderColor = isLab ? '#DA291C' : '#00b0cc';
+  el.style.color       = isLab ? '#DA291C' : '#00b0cc';
+  el.style.background  = isLab ? 'rgba(218,41,28,0.08)' : 'rgba(0,176,204,0.08)';
+  el.innerHTML = isLab
+    ? '<i class="fas fa-check-circle" style="margin-right:0.5rem"></i>'
+      + '<strong>CTF Lab loaded</strong>&nbsp;— 21 static challenges ready'
+      + ' &nbsp;<a href="/challenges" style="color:inherit;opacity:0.75;margin-left:0.5rem">Go to challenges &rarr;</a>'
+    : '<i class="fas fa-check-circle" style="margin-right:0.5rem"></i>'
+      + '<strong>Live CTF loaded</strong>&nbsp;— challenges from your FortiCNAPP tenant'
+      + ' &nbsp;<a href="/challenges" style="color:inherit;opacity:0.75;margin-left:0.5rem">Go to challenges &rarr;</a>';
+}
+
 document.addEventListener('DOMContentLoaded', checkExistingChallenges);
 
 // ── RESET mode (delete all challenges via trigger service — no token in browser) ─
@@ -312,6 +342,7 @@ async function resetMode(mode) {
     const data = await r.json();
     if (!r.ok) throw new Error(data.error || r.status);
 
+    localStorage.removeItem('fctf_mode');
     disableStartBtn('static');
     disableStartBtn('dynamic');
     showToast('✅  Reset complete — ' + data.deleted + ' challenge(s) removed.', 'success');
@@ -435,6 +466,7 @@ async function pollStatus(mode, btn, label, spinner, icon) {
       const resp = await fetch(TRIGGER_URL + '/status/' + mode);
       const data = await resp.json();
       if (data.status === 'success') {
+        localStorage.setItem('fctf_mode', mode === 'static' ? 'ctf-lab' : 'live-ctf');
         showToast('✅  Challenges loaded! Reloading…', 'success');
         enableStartBtn(mode); resetBtn(btn, label, spinner, icon);
         setTimeout(() => window.location.reload(), 1500);

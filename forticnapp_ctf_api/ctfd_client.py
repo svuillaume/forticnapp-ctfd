@@ -183,8 +183,30 @@ class CTFdClient:
 
     FORTINET_CSS_PATH = "/app/forticnapp_ctf_api/theme/fortinet.css"
 
+    _MODE_BANNER_JS = """
+<script>
+(function(){try{
+  localStorage.setItem('fctf_mode','live-ctf');
+  function _mb(){
+    if(document.getElementById('_fctf_mode_bar'))return;
+    var p=location.pathname;if(p==='/'||p==='')return;
+    var b=document.createElement('div');b.id='_fctf_mode_bar';
+    b.style.cssText='background:rgba(0,176,204,0.12);border-bottom:2px solid #00b0cc;'+
+      'padding:0.4rem 1rem;text-align:center;font-family:Inter,system-ui,sans-serif;'+
+      'font-size:0.78rem;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:#00b0cc;';
+    b.innerHTML='&#128225; Live CTF &nbsp;&mdash;&nbsp; <span style="font-weight:400;text-transform:none;'+
+      'letter-spacing:0;opacity:0.85">Challenges from your FortiCNAPP tenant &nbsp;&bull;&nbsp; '+
+      '<a href="/" style="color:#00b0cc;opacity:0.7">&#8592; Back to mode selector</a></span>';
+    var n=document.querySelector('nav.navbar')||document.querySelector('nav');
+    if(n&&n.parentNode)n.parentNode.insertBefore(b,n.nextSibling);
+    else document.body.insertBefore(b,document.body.firstChild);
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',_mb);else _mb();
+}catch(e){}})();
+</script>"""
+
     def apply_fortinet_theme(self) -> None:
-        """Push Fortinet brand CSS + event name to CTFd appearance settings."""
+        """Push Fortinet brand CSS + Live CTF mode banner JS to CTFd theme_header."""
         css = ""
         # Try reading the CSS from the mounted theme file
         import pathlib
@@ -203,11 +225,11 @@ class CTFdClient:
         # The "css" config key is stored but never output to the page.
         # Wrap the CSS in a <style> block and push it to theme_header.
         payload: dict[str, str] = {
-            "ctf_name": "Capture the Flag powered by FortiCNAPP",
-            "ctf_description": "Triage real cloud threats. Powered by FortiCNAPP.",
+            "ctf_name": "Live CTF — FortiCNAPP CTF",
+            "ctf_description": "Challenges generated from your live FortiCNAPP tenant.",
         }
         if css:
-            payload["theme_header"] = f"<style>\n{css}\n</style>"
+            payload["theme_header"] = f"<style>\n{css}\n</style>\n{self._MODE_BANNER_JS}"
 
         try:
             r = self.session.patch(
