@@ -153,6 +153,13 @@
     </a>
   </div>
 
+  <!-- Theme restore utility -->
+  <div style="text-align:center;margin:0.5rem 0 1.5rem;opacity:0.45;font-size:0.75rem;font-family:Inter,system-ui,sans-serif;">
+    <button onclick="reapplyTheme()" style="background:none;border:none;color:inherit;cursor:pointer;font-size:0.73rem;padding:0.25rem 0.5rem;opacity:0.7;transition:opacity 0.2s" title="Re-inject FortiCNAPP dark theme CSS + home page into CTFd">
+      <i class="fas fa-paint-brush" style="margin-right:0.3rem"></i>Re-apply Fortinet Theme
+    </button>
+  </div>
+
 </div><!-- end .forticnapp-home -->
 
 <!-- ── FortiCNAPP Credentials Modal ─────────────────────────────────────────── -->
@@ -537,6 +544,23 @@ async function pollStatus(mode, btn, label, spinner, icon) {
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') { closeCredModal(); closeWheelGame(); }
 });
+
+// ── Re-apply Fortinet theme (CSS + home page) without touching challenges ──
+async function reapplyTheme() {
+  showToast('🎨  Re-applying Fortinet theme…', 'info');
+  try {
+    const r = await fetch(TRIGGER_URL + '/run/theme', { method: 'POST' });
+    const d = await r.json();
+    if (d.ok) {
+      showToast('✅  Theme applied! Reloading…', 'success');
+      setTimeout(() => window.location.reload(), 1200);
+    } else {
+      showToast('❌  Theme apply failed. Check trigger logs.', 'error');
+    }
+  } catch {
+    showToast('⚡  Trigger service offline — run: docker compose run --rm bridge-static --theme-only', 'warn');
+  }
+}
 
 // ══════════════════════════════════════════════════════════════════════════════
 // ── CNAPP Wheel Game ──────────────────────────────────────────────────────────

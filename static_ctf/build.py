@@ -95,6 +95,8 @@ def parse_args():
     p.add_argument('-a', '--answers', action='store_true', help='Print all flags')
     p.add_argument('-C', '--category', default=None,
                    help='Comma-separated category directory names to limit build')
+    p.add_argument('--theme-only', action='store_true',
+                   help='Apply Fortinet theme CSS + home page only — skip all challenge loading')
     return p.parse_args()
 
 
@@ -116,6 +118,16 @@ def main():
 
     if args.schema:
         config['schema'] = args.schema
+
+    # Fast path: --theme-only skips all schema/challenge work
+    if args.theme_only:
+        ctfd = CTFd(config['ctfd_api_key'], config['ctfd_url'])
+        wait_for_ctfd(config['ctfd_url'], config['ctfd_api_key'])
+        logger.info('Applying Fortinet theme + home page (theme-only mode).')
+        _apply_theme(ctfd, config)
+        _apply_home_page(ctfd, config)
+        logger.info('Theme applied.')
+        sys.exit(0)
 
     schema = config['schema']
     if not isdir(schema):

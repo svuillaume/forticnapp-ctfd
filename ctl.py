@@ -469,24 +469,25 @@ def start(env: dict) -> None:
     if not ok:
         return
 
-    # ── Restore theme + home page + challenges if needed ──────────────────────
-    # On first boot OR when the database was wiped (0 challenges), automatically
-    # run bridge-static to push:
-    #   • Fortinet dark theme CSS → theme_header config
-    #   • Custom home page (CTF Lab / Live CTF mode cards) → CTFd Pages
-    #   • 21 static CTF Lab challenges
+    # ── Always restore Fortinet theme + home page ─────────────────────────────
+    # Run bridge-static --theme-only on every start so the dark theme and
+    # custom home page are always present — even after a fresh pull or rebuild.
+    # This is fast (~10 s): only 2 API calls, no challenge loading.
     token = env.get("CTFD_ADMIN_TOKEN", "")
-    n_challenges = _ctfd_challenge_count(token)
+    print(f"\n{CYAN}Applying Fortinet theme + home page…{RESET}")
+    print(f"{DIM}(bridge-static --theme-only){RESET}")
+    run(["docker", "compose", "run", "--rm", "bridge-static", "--theme-only"])
 
-    if first_boot or n_challenges == 0:
-        if first_boot:
-            print(f"\n{CYAN}First start — applying Fortinet theme, home page, and default questions…{RESET}")
-        else:
-            print(f"\n{YELLOW}⚠  No challenges found — restoring theme, home page, and default questions…{RESET}")
-        print(f"{DIM}(running bridge-static --category default — this takes ~30 s){RESET}\n")
+    # ── Load default challenges if database is empty ───────────────────────────
+    n_challenges = _ctfd_challenge_count(token)
+    if n_challenges == 0:
+        print(f"\n{YELLOW}No challenges found — loading 5 default CNAPP questions…{RESET}")
+        print(f"{DIM}(bridge-static --category default){RESET}\n")
         run(["docker", "compose", "run", "--rm", "bridge-static", "--category", "default"])
-        print(f"\n{GREEN}✅  Fortinet theme + home page applied. 5 default CNAPP questions loaded.{RESET}")
-        print(f"{DIM}Open the home page and click 'Load CTF Lab' or 'Load Live Challenges' to start the full event.{RESET}")
+        print(f"\n{GREEN}✅  5 default CNAPP questions loaded.{RESET}")
+        print(f"{DIM}Open the home page → 'Load CTF Lab' or 'Load Live Challenges' to start the full event.{RESET}")
+    else:
+        print(f"{GREEN}✅  Fortinet theme + home page applied ({n_challenges} challenge(s) already loaded).{RESET}")
 
     print(f"\n{CYAN}Open{RESET} {BOLD}https://{fqdn}{RESET}  {DIM}(self-signed cert — accept the browser warning on first visit){RESET}")
 

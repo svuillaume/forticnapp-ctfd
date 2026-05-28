@@ -195,7 +195,7 @@ def _run_reset():
         s['finished'] = time.time()
         return
 
-    buf.write('\n=== Loading default CNAPP challenges ===\n')
+    buf.write('\n=== Loading default CNAPP challenges + applying theme ===\n')
     old_out, old_err = sys.stdout, sys.stderr
     sys.stdout = sys.stderr = buf
 
@@ -203,7 +203,7 @@ def _run_reset():
         spec = importlib.util.spec_from_file_location('build', '/app/build.py')
         mod  = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
-        # Load only the 'default' category (5 intro CNAPP questions)
+        # Load only the 'default' category (5 intro CNAPP questions) + theme
         with mock.patch('sys.argv', ['build.py', '--build', '--category', 'default']):
             mod.main()
         s['status'] = 'success'
@@ -233,6 +233,40 @@ def status(mode):
     if mode not in STATUS:
         abort(400, description='Unknown mode. Use static, dynamic, or reset.')
     return jsonify(STATUS[mode].copy())
+
+
+def _run_theme():
+    """Apply Fortinet theme CSS + home page to CTFd without touching challenges."""
+    import importlib.util, io, unittest.mock as mock
+
+    s = STATUS['static']   # reuse static slot for logging convenience
+    old_out, old_err = sys.stdout, sys.stderr
+    buf = io.StringIO()
+    sys.stdout = sys.stderr = buf
+
+    try:
+        spec = importlib.util.spec_from_file_location('build', '/app/build.py')
+        mod  = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        with mock.patch('sys.argv', ['build.py', '--theme-only']):
+            mod.main()
+        return True, buf.getvalue()
+    except SystemExit as e:
+        ok = str(e) == '0'
+        return ok, buf.getvalue()
+    except Exception as exc:
+        logger.exception('Theme apply failed')
+        return False, buf.getvalue() + str(exc)
+    finally:
+        sys.stdout = old_out
+        sys.stderr = old_err
+
+
+@app.route('/run/theme', methods=['POST'])
+def run_theme():
+    """Apply Fortinet theme CSS + home page to CTFd. Does not touch challenges."""
+    ok, log = _run_theme()
+    return jsonify({'ok': ok, 'log': log[-2000:]}), 200 if ok else 500
 
 
 @app.route('/run/static', methods=['POST'])
