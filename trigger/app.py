@@ -680,9 +680,50 @@ def run(mode):
     abort(400, description='Unknown mode. Use static or dynamic.')
 
 
+# ── Startup self-heal ────────────────────────────────────────────────────────
+# Runs once in the background when the trigger container starts.
+# 1. Waits for CTFd to be reachable.
+# 2. Always re-applies the Fortinet theme + home page.
+# 3. If CTFd has 0 challenges, loads 5 random default CNAPP questions.
+# This guarantees a good-looking default state on every fresh deployment
+# without needing ctl.py or any manual step.
+
+def _startup_selfheal():
+    import requests as req_lib
+
+    logger.info('Startup self-heal: waiting for CTFd…')
+    # Wait up to 3 minutes for CTFd
+    for attempt in range(36):
+        try:
+            r = req_lib.get(f'{CTFD_URL}/api/v1/challenges', timeout=5)
+            if r.ok:
+                chals = r.json().get('data', [])
+                logger.info('Startup self-heal: CTFd ready, %d challenge(s) found.', len(chals))
+
+                # Always apply Fortinet theme + home page
+                ok, log = _run_theme()
+                if ok:
+                    logger.info('Startup self-heal: Fortinet theme applied.')
+                else:
+                    logger.warning('Startup self-heal: theme apply warning: %s', log[-200:])
+
+                # Load 5 random defaults only if DB is empty
+                if len(chals) == 0:
+                    logger.info('Startup self-heal: no challenges — loading 5 random defaults.')
+                    _run_reset()
+                    logger.info('Startup self-heal: default challenges loaded.')
+                return
+        except Exception as e:
+            logger.debug('Startup self-heal attempt %d: %s', attempt + 1, e)
+        time.sleep(5)
+
+    logger.warning('Startup self-heal: CTFd not ready after 3 min — skipping.')
+
+
 # ── Entry ─────────────────────────────────────────────────────────────────────
 
 if __name__ == '__main__':
     port = int(os.environ.get('TRIGGER_PORT', 5555))
     logger.info('FortiCNAPP CTF Trigger Service starting on :%d', port)
+    threading.Thread(target=_startup_selfheal, daemon=True).start()
     app.run(host='0.0.0.0', port=port, threaded=True)
