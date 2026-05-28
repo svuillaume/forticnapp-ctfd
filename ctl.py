@@ -396,20 +396,25 @@ def get_status() -> str:
 # ── Menu ───────────────────────────────────────────────────────────────────────
 
 def build_menu(env: dict) -> str:
-    fqdn       = env.get("FQDN", "")
-    https_port = env.get("HTTPS_PORT") or "443"
-    token_ok   = bool(env.get("CTFD_ADMIN_TOKEN"))
-    cert_found = has_cert(fqdn) if fqdn else False
-    ready      = bool(fqdn and token_ok and (cert_found or env.get("DUCKDNS_TOKEN")))
+    fqdn        = env.get("FQDN", "")
+    https_port  = env.get("HTTPS_PORT") or "443"
+    token_ok    = bool(env.get("CTFD_ADMIN_TOKEN"))
+    duckdns_ok  = bool(env.get("DUCKDNS_TOKEN"))
+    cert_found  = has_cert(fqdn) if fqdn else False
+    prod_ready  = bool(fqdn and token_ok and (cert_found or duckdns_ok))
+    local_ready = bool(token_ok and not duckdns_ok)
 
-    url = (f"https://{fqdn}:{https_port}" if https_port != "443" else f"https://{fqdn}") if fqdn else ""
-
-    if ready and cert_found:
+    if prod_ready and cert_found:
+        url = f"https://{fqdn}:{https_port}" if https_port != "443" else f"https://{fqdn}"
         start_info = f"{DIM}→ {url}{RESET}  {GREEN}🔒 cert ready{RESET}"
-    elif ready:
+    elif prod_ready:
+        url = f"https://{fqdn}:{https_port}" if https_port != "443" else f"https://{fqdn}"
         start_info = f"{DIM}→ {url}{RESET}  {YELLOW}cert will be obtained on first start{RESET}"
+    elif local_ready:
+        url = f"https://localhost:{https_port}" if https_port != "443" else "https://localhost"
+        start_info = f"{DIM}→ {url}{RESET}  {CYAN}local mode (self-signed cert){RESET}"
     elif not token_ok:
-        start_info = f"{YELLOW}⚠  CTFD_ADMIN_TOKEN missing — press s{RESET}"
+        start_info = f"{YELLOW}⚠  first start — token will be auto-generated{RESET}"
     else:
         start_info = f"{YELLOW}⚠  FQDN or DUCKDNS_TOKEN missing — press s{RESET}"
 
@@ -527,24 +532,28 @@ def start(env: dict) -> None:
             print(f"{DIM}3. Press s here → paste token → press 1 to start full stack{RESET}")
             return
 
-    # ── HTTPS not configured ───────────────────────────────────────────────────
-    if not https_ready:
-        print(f"\n{RED}Cannot start — FQDN or DUCKDNS_TOKEN is missing.{RESET}")
-        print(f"{DIM}Press s to open the setup wizard and configure HTTPS.{RESET}")
-        return
-
-    # ── Full stack ─────────────────────────────────────────────────────────────
+    # ── Start full stack ───────────────────────────────────────────────────────
+    # Caddy auto-selects its config at runtime:
+    #   DUCKDNS_TOKEN set   → production Caddyfile  (Let's Encrypt + DuckDNS)
+    #   DUCKDNS_TOKEN unset → Caddyfile.local        (self-signed cert, localhost)
     ok = run(["docker", "compose", "up", "-d", "db", "cache", "ctfd", "trigger", "caddy"])
     if not ok:
-        return   # Docker unavailable — error already printed by run()
+        return
 
-    # Invalidate cert cache so next menu re-probes after Caddy may have obtained a cert
     invalidate_cert_cache()
 
-    url = f"https://{fqdn}:{https_port}" if https_port != "443" else f"https://{fqdn}"
-    src = "existing cert" if cert_found else "new cert — Caddy is obtaining it (~30 s)"
-    print(f"\n{CYAN}Open{RESET} {BOLD}{url}{RESET}  {DIM}({src}){RESET}")
-    print(f"{DIM}HTTP → HTTPS redirect is active on port 80.{RESET}")
+    duckdns_ok = bool(env.get("DUCKDNS_TOKEN"))
+    if fqdn and duckdns_ok:
+        # Production HTTPS — Let's Encrypt via DuckDNS
+        url = f"https://{fqdn}:{https_port}" if https_port != "443" else f"https://{fqdn}"
+        src = "existing cert" if cert_found else "new cert — Caddy is obtaining it (~30 s)"
+        print(f"\n{CYAN}Open{RESET} {BOLD}{url}{RESET}  {DIM}({src}){RESET}")
+        print(f"{DIM}HTTP → HTTPS redirect is active on port 80.{RESET}")
+    else:
+        # Local mode — self-signed cert
+        url = f"https://localhost:{https_port}" if https_port != "443" else "https://localhost"
+        print(f"\n{CYAN}Open{RESET} {BOLD}{url}{RESET}  {DIM}(self-signed cert — accept the browser warning){RESET}")
+        print(f"{DIM}Trigger API → https://localhost:5555{RESET}")
 
 
 # ── Entry ──────────────────────────────────────────────────────────────────────

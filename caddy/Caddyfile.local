@@ -1,0 +1,56 @@
+# Local development Caddyfile — used when DUCKDNS_TOKEN is not set.
+# Caddy issues a self-signed cert via its built-in local CA (tls internal).
+# The browser will show a security warning on first visit — click "Advanced → Accept".
+#
+# Access: https://localhost           (CTFd)
+#         https://localhost:5555      (Trigger API)
+
+{
+    # Silence the ACME email requirement for local-only certs
+    local_certs
+
+    # Caddy admin API — internal only
+    admin 0.0.0.0:2019
+}
+
+# ── CTFd ──────────────────────────────────────────────────────────────────────
+:443 {
+
+    tls internal
+
+    encode gzip
+
+    header {
+        X-Content-Type-Options    nosniff
+        X-Frame-Options           SAMEORIGIN
+        Referrer-Policy           strict-origin-when-cross-origin
+        -Server
+    }
+
+    respond /caddy-health 200
+
+    reverse_proxy ctfd:8000 {
+        header_up Host        {upstream_hostport}
+        header_up X-Real-IP   {remote_host}
+        header_up Connection  {http.request.header.Connection}
+        header_up Upgrade     {http.request.header.Upgrade}
+    }
+}
+
+# ── Trigger service ───────────────────────────────────────────────────────────
+:5555 {
+
+    tls internal
+
+    header {
+        Access-Control-Allow-Origin  *
+        Access-Control-Allow-Methods "GET, POST, OPTIONS"
+        Access-Control-Allow-Headers "Content-Type"
+        -Server
+    }
+
+    @options method OPTIONS
+    respond @options 204
+
+    reverse_proxy trigger:5555
+}

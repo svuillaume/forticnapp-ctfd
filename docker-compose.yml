@@ -146,9 +146,9 @@ services:
       dockerfile: trigger/Dockerfile
     container_name: forticnapp-ctf-trigger
     restart: unless-stopped
-    ports:
-      # Localhost only — Caddy terminates TLS externally on port 5555.
-      - "127.0.0.1:${TRIGGER_HOST_PORT:-5555}:5555"
+    # No host port — trigger is an internal service.
+    # Caddy terminates TLS on host:5555 and proxies to trigger:5555 inside ctf-net.
+    # Direct access for debugging: docker compose exec trigger wget -qO- http://localhost:5555/health
     environment:
       - CTFD_API_URL=http://ctfd:8000
       - CTFD_ADMIN_TOKEN=${CTFD_ADMIN_TOKEN}

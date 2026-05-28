@@ -12,11 +12,24 @@ LABEL org.opencontainers.image.description="Caddy reverse proxy with Let's Encry
 # Drop in the custom Caddy binary that knows about DuckDNS
 COPY --from=builder /usr/bin/caddy /usr/bin/caddy
 
-# Site configuration
-COPY Caddyfile /etc/caddy/Caddyfile
+# Site configurations
+# Caddyfile       — production (Let's Encrypt via DuckDNS DNS-01)
+# Caddyfile.local — local dev  (self-signed cert via Caddy internal CA)
+COPY Caddyfile       /etc/caddy/Caddyfile
+COPY Caddyfile.local /etc/caddy/Caddyfile.local
 
-# 80   — HTTP (redirected to HTTPS automatically by Caddy)
+# 80   — HTTP (redirected to HTTPS automatically by Caddy — production only)
 # 443  — HTTPS (CTFd)
 # 5555 — HTTPS (Trigger service)
 # 2019 — Caddy admin API (health checks, config reload — internal only)
 EXPOSE 80 443 5555 2019
+
+# Select Caddyfile at runtime:
+#   DUCKDNS_TOKEN set   → production  (Let's Encrypt + DuckDNS)
+#   DUCKDNS_TOKEN unset → local dev   (self-signed cert)
+CMD ["sh", "-c", \
+     "if [ -n \"${DUCKDNS_TOKEN}\" ]; then \
+        exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile; \
+      else \
+        exec caddy run --config /etc/caddy/Caddyfile.local --adapter caddyfile; \
+      fi"]
