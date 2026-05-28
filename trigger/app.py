@@ -157,9 +157,9 @@ _DEFAULT_POOL = [
         "desc": (
             "**CNAPP** is Fortinet's unified cloud security platform.\n\n"
             "What does the acronym stand for? Enter each word separated by underscores, all lowercase.\n\n"
-            "`FLAG{word_word_word_word_word}`"
+            "Example format: `word_word_word_word_word`"
         ),
-        "flag": "FLAG{cloud_native_application_protection_platform}",
+        "flag": "cloud_native_application_protection_platform",
         "hint": "Cloud + Native + Application + Protection + Platform",
     },
     {
@@ -168,9 +168,9 @@ _DEFAULT_POOL = [
             "This FortiCNAPP pillar continuously scans your cloud for **misconfigurations** "
             "and compliance violations against CIS, NIST, PCI-DSS, and SOC 2 benchmarks.\n\n"
             "What does **CSPM** stand for? Underscores, lowercase.\n\n"
-            "`FLAG{word_word_word_word}`"
+            "Example format: `word_word_word_word`"
         ),
-        "flag": "FLAG{cloud_security_posture_management}",
+        "flag": "cloud_security_posture_management",
         "hint": "It manages your cloud security posture. Cloud + Security + Posture + Management.",
     },
     {
@@ -179,9 +179,9 @@ _DEFAULT_POOL = [
             "This FortiCNAPP pillar scans running **VMs, containers, and serverless functions** "
             "for vulnerabilities, malware, and exposed secrets — agentlessly.\n\n"
             "What does **CWPP** stand for? Underscores, lowercase.\n\n"
-            "`FLAG{word_word_word_word}`"
+            "Example format: `word_word_word_word`"
         ),
-        "flag": "FLAG{cloud_workload_protection_platform}",
+        "flag": "cloud_workload_protection_platform",
         "hint": "Cloud + Workload + Protection + Platform",
     },
     {
@@ -190,9 +190,9 @@ _DEFAULT_POOL = [
             "Over-privileged IAM roles are among the top cloud attack vectors. "
             "This FortiCNAPP capability maps every identity and surfaces **excessive entitlements**.\n\n"
             "What does **CIEM** stand for? Underscores, lowercase.\n\n"
-            "`FLAG{word_word_word_word}`"
+            "Example format: `word_word_word_word`"
         ),
-        "flag": "FLAG{cloud_infrastructure_entitlements_management}",
+        "flag": "cloud_infrastructure_entitlements_management",
         "hint": "Cloud + Infrastructure + Entitlements + Management",
     },
     {
@@ -201,9 +201,9 @@ _DEFAULT_POOL = [
             "FortiCNAPP uses **ML-based anomaly detection** on activity logs and audit trails "
             "to detect threats at runtime in cloud environments.\n\n"
             "What does **CDR** stand for? Underscores, lowercase.\n\n"
-            "`FLAG{word_word_word}`"
+            "Example format: `word_word_word`"
         ),
-        "flag": "FLAG{cloud_detection_and_response}",
+        "flag": "cloud_detection_and_response",
         "hint": "Think: Detect + Respond, in the cloud. Cloud + Detection + and + Response.",
     },
     {
@@ -212,9 +212,9 @@ _DEFAULT_POOL = [
             "This FortiCNAPP capability discovers and classifies **sensitive data** in cloud storage "
             "(S3, Azure Blob, GCS) and flags over-exposed buckets.\n\n"
             "What does **DSPM** stand for? Underscores, lowercase.\n\n"
-            "`FLAG{word_word_word_word}`"
+            "Example format: `word_word_word_word`"
         ),
-        "flag": "FLAG{data_security_posture_management}",
+        "flag": "data_security_posture_management",
         "hint": "Data + Security + Posture + Management",
     },
     {
@@ -223,10 +223,9 @@ _DEFAULT_POOL = [
             "Every major cloud security report (CSA, Gartner, Verizon DBIR) names the same leading "
             "root cause of cloud data breaches — not a zero-day, but a **preventable human error** "
             "when setting up cloud services.\n\n"
-            "What **one-word term** describes this?\n\n"
-            "`FLAG{oneword}`"
+            "What **one-word term** describes this? Lowercase."
         ),
-        "flag": "FLAG{misconfiguration}",
+        "flag": "misconfiguration",
         "hint": "S3 bucket left public, SSH port open to the world, MFA disabled. These are all examples.",
     },
     {
@@ -235,9 +234,9 @@ _DEFAULT_POOL = [
             "In cloud security, this framework controls **who can do what** on which resources. "
             "FortiCNAPP's CIEM pillar analyses it to detect excessive permissions.\n\n"
             "What does **IAM** stand for? Underscores, lowercase.\n\n"
-            "`FLAG{word_word_word}`"
+            "Example format: `word_word_word`"
         ),
-        "flag": "FLAG{identity_and_access_management}",
+        "flag": "identity_and_access_management",
         "hint": "Identity + and + Access + Management",
     },
     {
@@ -246,9 +245,9 @@ _DEFAULT_POOL = [
             "FortiCNAPP includes **code security scanning** that catches misconfigurations "
             "before they reach production — in Terraform, CloudFormation, Bicep, and Helm.\n\n"
             "What does **IaC** stand for? Underscores, lowercase.\n\n"
-            "`FLAG{word_word_word}`"
+            "Example format: `word_word_word`"
         ),
-        "flag": "FLAG{infrastructure_as_code}",
+        "flag": "infrastructure_as_code",
         "hint": "Your infrastructure defined in code files. Infrastructure + as + Code.",
     },
     {
@@ -258,9 +257,9 @@ _DEFAULT_POOL = [
             "This artifact lists every open-source library in a software release so you can "
             "check each one against known CVEs.\n\n"
             "What does **SBOM** stand for? Underscores, lowercase.\n\n"
-            "`FLAG{word_word_word_word}`"
+            "Example format: `word_word_word_word`"
         ),
-        "flag": "FLAG{software_bill_of_materials}",
+        "flag": "software_bill_of_materials",
         "hint": "Like a bill of materials in manufacturing, but for software. Software + Bill + of + Materials.",
     },
     {
@@ -269,9 +268,9 @@ _DEFAULT_POOL = [
             "The principle of **least privilege** says users should only have the access they need. "
             "This access control model enforces it by assigning permissions to roles, not individuals.\n\n"
             "What does **RBAC** stand for? Underscores, lowercase.\n\n"
-            "`FLAG{word_word_word_word}`"
+            "Example format: `word_word_word_word`"
         ),
-        "flag": "FLAG{role_based_access_control}",
+        "flag": "role_based_access_control",
         "hint": "Role + Based + Access + Control",
     },
     {
@@ -280,9 +279,9 @@ _DEFAULT_POOL = [
             "FortiCNAPP's CWPP scans workloads and containers for known vulnerabilities, "
             "each identified by a unique ID in this registry maintained by MITRE.\n\n"
             "What does **CVE** stand for? Underscores, lowercase.\n\n"
-            "`FLAG{word_word_word}`"
+            "Example format: `word_word_word`"
         ),
-        "flag": "FLAG{common_vulnerabilities_and_exposures}",
+        "flag": "common_vulnerabilities_and_exposures",
         "hint": "A global dictionary of publicly known security flaws. Common + Vulnerabilities + and + Exposures.",
     },
     {
@@ -292,9 +291,9 @@ _DEFAULT_POOL = [
             "This control requires a second proof of identity beyond the password — "
             "FortiCNAPP flags cloud accounts that don't enforce it.\n\n"
             "What does **MFA** stand for? Underscores, lowercase.\n\n"
-            "`FLAG{word_word_word}`"
+            "Example format: `word_word_word`"
         ),
-        "flag": "FLAG{multi_factor_authentication}",
+        "flag": "multi_factor_authentication",
         "hint": "Multi + Factor + Authentication",
     },
     {
@@ -303,9 +302,9 @@ _DEFAULT_POOL = [
             "This code security technique scans your project's **open-source dependencies** "
             "for known CVEs and licence violations — a key defence against supply chain attacks.\n\n"
             "What does **SCA** stand for? Underscores, lowercase.\n\n"
-            "`FLAG{word_word_word}`"
+            "Example format: `word_word_word`"
         ),
-        "flag": "FLAG{software_composition_analysis}",
+        "flag": "software_composition_analysis",
         "hint": "Software + Composition + Analysis",
     },
     {
@@ -314,9 +313,9 @@ _DEFAULT_POOL = [
             "FortiCNAPP can forward cloud security events to this platform, which **aggregates "
             "logs** from across the environment and correlates them into alerts for SOC analysts.\n\n"
             "What does **SIEM** stand for? Underscores, lowercase.\n\n"
-            "`FLAG{word_word_word_word}`"
+            "Example format: `word_word_word_word`"
         ),
-        "flag": "FLAG{security_information_and_event_management}",
+        "flag": "security_information_and_event_management",
         "hint": "Security + Information + and + Event + Management",
     },
     {
@@ -326,9 +325,9 @@ _DEFAULT_POOL = [
             "FortiCNAPP checks that **security groups and NACLs** inside this construct "
             "follow the least-privilege rule.\n\n"
             "What does **VPC** stand for? Underscores, lowercase.\n\n"
-            "`FLAG{word_word_word}`"
+            "Example format: `word_word_word`"
         ),
-        "flag": "FLAG{virtual_private_cloud}",
+        "flag": "virtual_private_cloud",
         "hint": "Virtual + Private + Cloud",
     },
     {
@@ -337,9 +336,9 @@ _DEFAULT_POOL = [
             "A core cloud security principle: every identity should only have the **minimum "
             "permissions** needed to perform its task — nothing more.\n\n"
             "Name this principle (two words, underscore-separated, lowercase).\n\n"
-            "`FLAG{word_word}`"
+            "Example format: `word_word`"
         ),
-        "flag": "FLAG{least_privilege}",
+        "flag": "least_privilege",
         "hint": "Think about the minimum necessary access. Least + Privilege.",
     },
     {
@@ -348,9 +347,9 @@ _DEFAULT_POOL = [
             "FortiCNAPP cloud detections can feed into this platform, which correlates "
             "threats across **endpoint, network, email, and cloud** for a unified investigation view.\n\n"
             "What does **XDR** stand for? Underscores, lowercase.\n\n"
-            "`FLAG{word_word_word}`"
+            "Example format: `word_word_word`"
         ),
-        "flag": "FLAG{extended_detection_and_response}",
+        "flag": "extended_detection_and_response",
         "hint": "Extended + Detection + and + Response",
     },
     {
@@ -359,9 +358,9 @@ _DEFAULT_POOL = [
             "FortiCNAPP can detect when a cloud workload is targeted by injection attacks. "
             "The control layer that filters malicious HTTP requests before they reach the app is called…\n\n"
             "What does **WAF** stand for? Underscores, lowercase.\n\n"
-            "`FLAG{word_word_word}`"
+            "Example format: `word_word_word`"
         ),
-        "flag": "FLAG{web_application_firewall}",
+        "flag": "web_application_firewall",
         "hint": "Web + Application + Firewall",
     },
     {
@@ -371,9 +370,9 @@ _DEFAULT_POOL = [
             "organisation — their AWS, Azure, and GCP guides are the industry standard for "
             "**cloud configuration hardening**.\n\n"
             "What does **CIS** stand for? Underscores, lowercase.\n\n"
-            "`FLAG{word_word_word}`"
+            "Example format: `word_word_word`"
         ),
-        "flag": "FLAG{center_for_internet_security}",
+        "flag": "center_for_internet_security",
         "hint": "Center + for + Internet + Security",
     },
     {
@@ -382,9 +381,9 @@ _DEFAULT_POOL = [
             "FortiCNAPP's code security scans source code **before it is compiled or run** "
             "to find vulnerabilities like hardcoded secrets, SQL injection, and path traversal.\n\n"
             "What does **SAST** stand for? Underscores, lowercase.\n\n"
-            "`FLAG{word_word_word_word}`"
+            "Example format: `word_word_word_word`"
         ),
-        "flag": "FLAG{static_application_security_testing}",
+        "flag": "static_application_security_testing",
         "hint": "Static + Application + Security + Testing",
     },
     {
@@ -393,9 +392,9 @@ _DEFAULT_POOL = [
             "In the cloud **shared responsibility model**, the cloud provider secures the "
             "physical infrastructure. When you run a VM (IaaS), patching the operating system "
             "is whose responsibility?\n\n"
-            "Answer: `FLAG{customer}` or `FLAG{provider}`"
+            "Answer: `customer` or `provider`"
         ),
-        "flag": "FLAG{customer}",
+        "flag": "customer",
         "hint": "The cloud provider manages the hypervisor and hardware. The OS running on the VM is yours.",
     },
     {
@@ -404,9 +403,9 @@ _DEFAULT_POOL = [
             "FortiCNAPP flags cloud resources that expose services over unencrypted connections. "
             "This cryptographic protocol replaced SSL and protects data **in transit**.\n\n"
             "What does **TLS** stand for? Underscores, lowercase.\n\n"
-            "`FLAG{word_word_word}`"
+            "Example format: `word_word_word`"
         ),
-        "flag": "FLAG{transport_layer_security}",
+        "flag": "transport_layer_security",
         "hint": "Transport + Layer + Security",
     },
     {
@@ -416,9 +415,9 @@ _DEFAULT_POOL = [
             "responsible for monitoring, detecting, and responding to security incidents "
             "across the organisation's cloud and on-premises environments.\n\n"
             "What does **SOC** stand for? Underscores, lowercase.\n\n"
-            "`FLAG{word_word_word}`"
+            "Example format: `word_word_word`"
         ),
-        "flag": "FLAG{security_operations_center}",
+        "flag": "security_operations_center",
         "hint": "Security + Operations + Center",
     },
     {
@@ -426,10 +425,9 @@ _DEFAULT_POOL = [
         "desc": (
             "FortiCNAPP can scan cloud workloads for vulnerabilities and malware without "
             "installing any software on the host — using cloud-provider snapshot APIs instead.\n\n"
-            "What is this scanning mode called? (one word, lowercase)\n\n"
-            "`FLAG{oneword}`"
+            "What is this scanning mode called? (one word, lowercase)"
         ),
-        "flag": "FLAG{agentless}",
+        "flag": "agentless",
         "hint": "No software installed on the VM. The scan happens externally via cloud APIs.",
     },
 ]
