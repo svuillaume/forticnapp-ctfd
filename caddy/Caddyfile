@@ -6,14 +6,9 @@
     admin 0.0.0.0:2019
 }
 
-# ── CTFd — HTTPS ──────────────────────────────────────────────────────────────
-# FQDN is injected from .env. Port 443 is Caddy's default for HTTPS — no need
-# to specify it; {env.HTTPS_PORT} cannot be used in port position by Caddy.
+# ── CTFd — HTTPS on port 443 (default) ───────────────────────────────────────
 {env.FQDN} {
 
-    # TLS via Let's Encrypt DNS-01 challenge (DuckDNS).
-    # Caddy calls the DuckDNS API to create the _acme-challenge TXT record.
-    # No inbound port 80 needed for cert issuance.
     tls {
         dns duckdns {env.DUCKDNS_TOKEN}
     }
@@ -30,19 +25,15 @@
 
     respond /caddy-health 200
 
-    # CTFd reverse proxy — preserve host + forward IP for REVERSE_PROXY=true
     reverse_proxy ctfd:8000 {
         header_up Host        {upstream_hostport}
         header_up X-Real-IP   {remote_host}
-        # WebSocket support (CTFd uses Socket.IO for real-time updates)
         header_up Connection  {http.request.header.Connection}
         header_up Upgrade     {http.request.header.Upgrade}
     }
 }
 
 # ── Trigger service — HTTPS on port 5555 ─────────────────────────────────────
-# Home page JS connects to window.location.hostname + ':5555' for build triggers.
-# Caddy reuses the same cert (same domain, different port).
 {env.FQDN}:5555 {
 
     tls {
@@ -50,7 +41,7 @@
     }
 
     header {
-        Access-Control-Allow-Origin  "https://{env.FQDN}:{env.HTTPS_PORT}"
+        Access-Control-Allow-Origin  "https://{env.FQDN}"
         Access-Control-Allow-Methods "GET, POST, OPTIONS"
         Access-Control-Allow-Headers "Content-Type"
         -Server
