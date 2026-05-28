@@ -811,31 +811,52 @@ h2 { font-weight: 600; }
 .badge.badge-secondary,
 .badge.bg-secondary { background-color: var(--bg-elevated) !important; }
 
-/* ── Challenge card text — no truncation, centered ───────── */
-/* Challenge name: allow wrapping, center, full display */
+/* ── Challenge card — auto height, full text, no clipping ─── */
+/* The <button> element itself must also allow height to grow  */
+.challenge-button {
+  height: auto !important;
+  min-height: 80px !important;
+  overflow: visible !important;
+  white-space: normal !important;
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
+  text-align: center !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.4rem !important;
+  padding: 0.75rem 0.6rem !important;
+}
+
+/* Challenge name text — smaller font so long titles wrap cleanly */
 .challenge-button .challenge-name,
 .challenge-button span:first-child,
 .challenge-button > div:first-child,
 .challenge-card   .challenge-name,
 .challenge-card   .card-title {
+  font-size: 0.82rem !important;
   white-space: normal !important;
   overflow: visible !important;
-  text-overflow: unset !important;
+  text-overflow: clip !important;
   word-break: break-word !important;
+  overflow-wrap: break-word !important;
   text-align: center !important;
-  line-height: 1.4 !important;
+  line-height: 1.35 !important;
+  max-width: 100% !important;
+  display: block !important;
 }
 
-/* Center all text inside challenge cards */
-.challenge-button,
-.challenge-card {
-  text-align: center !important;
-}
+/* Every child stays centered */
 .challenge-button * { text-align: center !important; }
 
 /* Challenge point value — keep mono style */
 .challenge-button .challenge-value,
-.challenge-button .badge { text-align: center !important; }
+.challenge-button .badge {
+  font-size: 0.72rem !important;
+  text-align: center !important;
+  flex-shrink: 0 !important;
+}
 
 /* ── Modal body — scrollable, never clipped ─────────────── */
 .modal-dialog { max-height: 90vh; display: flex; flex-direction: column; }
