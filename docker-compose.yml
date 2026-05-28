@@ -170,6 +170,7 @@ services:
       - STATIC_SCHEMA_DIR=/app/ctf
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - TRIGGER_PORT=5555
+      - INACTIVITY_RESET_HOURS=${INACTIVITY_RESET_HOURS:-24}
     depends_on:
       - ctfd
     networks:

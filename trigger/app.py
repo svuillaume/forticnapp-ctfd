@@ -56,11 +56,20 @@ LOCK: dict = {
     'reset':   threading.Lock(),
 }
 
+# ── Inactivity auto-reset ─────────────────────────────────────────────────────
+# Updated whenever a user triggers a build, reset, or submits a challenge flag.
+# The watchdog thread compares this against time.time() every 30 min.
+INACTIVITY_RESET_HOURS: int = int(os.environ.get('INACTIVITY_RESET_HOURS', 24))
+_last_activity: float       = time.time()   # seconds since epoch
+
 
 # ── Build runners ─────────────────────────────────────────────────────────────
 
 def _run_static():
     """Clear all challenges then run the full CTF Lab build (21 challenges)."""
+    global _last_activity
+    _last_activity = time.time()
+
     import importlib.util, io, unittest.mock as mock
 
     s = STATUS['static']
@@ -100,6 +109,9 @@ def _run_static():
 def _run_dynamic(account: str = '', key_id: str = '', secret: str = '',
                  subaccount: str = ''):
     """Clear all challenges then run the dynamic FortiCNAPP API build."""
+    global _last_activity
+    _last_activity = time.time()
+
     s = STATUS['dynamic']
     s['status']  = 'running'
     s['log']     = ''
@@ -526,6 +538,9 @@ def _push_default_challenges(n: int = 5) -> dict:
 
 def _run_reset():
     """Delete all challenges, pick 5 random CNAPP default questions, push them."""
+    global _last_activity
+    _last_activity = time.time()
+
     s = STATUS['reset']
     s['status']  = 'running'
     s['log']     = ''
@@ -582,6 +597,82 @@ def _run_reset():
     logger.info('Reset complete: status=%s created=%d', s['status'], push.get('created', 0))
 
 
+# ── Inactivity watchdog ───────────────────────────────────────────────────────
+
+def _inactivity_watchdog():
+    """
+    Background thread: if no build/reset/submission has happened for
+    INACTIVITY_RESET_HOURS, automatically reset to 5 random default questions.
+    Set INACTIVITY_RESET_HOURS=0 to disable.
+    """
+    if INACTIVITY_RESET_HOURS <= 0:
+        logger.info('Inactivity auto-reset disabled (INACTIVITY_RESET_HOURS=0).')
+        return
+
+    CHECK_INTERVAL = 1800   # check every 30 minutes
+    threshold_s    = INACTIVITY_RESET_HOURS * 3600
+    logger.info('Inactivity watchdog: auto-reset after %dh of no activity.', INACTIVITY_RESET_HOURS)
+
+    while True:
+        time.sleep(CHECK_INTERVAL)
+        try:
+            global _last_activity
+
+            # ── Pull latest challenge-submission timestamp from CTFd ──────────
+            import json as _json
+            import urllib.request as _ureq
+            try:
+                req = _ureq.Request(
+                    f'{CTFD_URL}/api/v1/submissions?limit=1',
+                    headers={'Authorization': f'Token {ADMIN_TOKEN}'},
+                )
+                data = _json.loads(_ureq.urlopen(req, timeout=10).read()).get('data', [])
+                if data:
+                    date_str = data[0].get('date', '')
+                    if date_str:
+                        from datetime import datetime as _dt
+                        ts = _dt.fromisoformat(date_str.replace('Z', '+00:00')).timestamp()
+                        if ts > _last_activity:
+                            logger.debug('Inactivity watchdog: new submission at %.0f — refreshing activity clock.', ts)
+                            _last_activity = ts
+            except Exception as e:
+                logger.debug('Inactivity watchdog: submission check: %s', e)
+
+            # ── Check elapsed time ────────────────────────────────────────────
+            elapsed    = time.time() - _last_activity
+            elapsed_h  = elapsed / 3600
+            remaining_h = max(0.0, (threshold_s - elapsed) / 3600)
+
+            if elapsed < threshold_s:
+                logger.debug(
+                    'Inactivity watchdog: %.1fh elapsed, %.1fh until auto-reset.',
+                    elapsed_h, remaining_h,
+                )
+                continue
+
+            # ── Threshold crossed — skip if a build/reset is already running ──
+            busy = (
+                STATUS['reset']['status']   == 'running' or
+                STATUS['static']['status']  == 'running' or
+                STATUS['dynamic']['status'] == 'running'
+            )
+            if busy:
+                logger.info('Inactivity watchdog: threshold reached but a job is running — postponing.')
+                _last_activity = time.time()   # give it another full window
+                continue
+
+            logger.info(
+                'Inactivity watchdog: %.1fh since last activity (threshold %dh) — '
+                'auto-resetting to 5 random default CNAPP questions.',
+                elapsed_h, INACTIVITY_RESET_HOURS,
+            )
+            _last_activity = time.time()   # prevent double-fire
+            threading.Thread(target=_run_reset, daemon=True).start()
+
+        except Exception as exc:
+            logger.warning('Inactivity watchdog error: %s', exc)
+
+
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 @app.route('/health')
@@ -591,8 +682,17 @@ def health():
 
 @app.route('/status/<mode>')
 def status(mode):
+    if mode == 'inactivity':
+        elapsed = time.time() - _last_activity
+        return jsonify({
+            'enabled':              INACTIVITY_RESET_HOURS > 0,
+            'threshold_hours':      INACTIVITY_RESET_HOURS,
+            'elapsed_seconds':      round(elapsed),
+            'remaining_seconds':    max(0, round(INACTIVITY_RESET_HOURS * 3600 - elapsed)),
+            'last_activity_epoch':  round(_last_activity),
+        })
     if mode not in STATUS:
-        abort(400, description='Unknown mode. Use static, dynamic, or reset.')
+        abort(400, description='Unknown mode. Use static, dynamic, reset, or inactivity.')
     return jsonify(STATUS[mode].copy())
 
 
@@ -867,4 +967,5 @@ if __name__ == '__main__':
     port = int(os.environ.get('TRIGGER_PORT', 5555))
     logger.info('FortiCNAPP CTF Trigger Service starting on :%d', port)
     threading.Thread(target=_startup_selfheal, daemon=True).start()
+    threading.Thread(target=_inactivity_watchdog, daemon=True).start()
     app.run(host='0.0.0.0', port=port, threaded=True)
