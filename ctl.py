@@ -417,9 +417,9 @@ def build_menu(env: dict) -> str:
   {GREEN}s{RESET}  Setup / edit .env
 
   {GREEN}1{RESET}  START    {start_info}
-  {YELLOW}2{RESET}  STOP     {DIM}(containers paused, data kept){RESET}
+  {YELLOW}2{RESET}  STOP     {DIM}(containers stopped, data kept){RESET}
   {GREEN}3{RESET}  RESTART
-  {RED}4{RESET}  RESET    {DIM}⚠️  wipes database + all scores{RESET}
+  {RED}4{RESET}  DESTROY  {DIM}⚠️  removes containers + volumes — all data lost{RESET}
 
   {DIM}5   Logs (CTFd)
   6   Logs (Trigger)
@@ -572,9 +572,15 @@ def main() -> None:
             start(env)
 
         elif choice == "4":
-            c = input(f"{RED}{BOLD}⚠️  Wipe ALL data — type YES to confirm: {RESET}").strip()
+            c = input(f"{RED}{BOLD}⚠️  DESTROY — removes all containers and volumes. Type YES to confirm: {RESET}").strip()
             if c == "YES":
-                run(["docker", "compose", "down", "-v"])
+                ok = run(["docker", "compose", "down", "-v", "--remove-orphans"])
+                if ok:
+                    # Clear the admin token — CTFd DB is gone, token is invalid
+                    write_env({"CTFD_ADMIN_TOKEN": ""})
+                    invalidate_cert_cache()
+                    print(f"{GREEN}✅  Stack destroyed. CTFD_ADMIN_TOKEN cleared.{RESET}")
+                    print(f"{DIM}Press 1 to rebuild from scratch.{RESET}")
             else:
                 print(f"{YELLOW}Cancelled.{RESET}")
 
