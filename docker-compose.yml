@@ -22,6 +22,7 @@ services:
   # ── Core: CTFd web app ─────────────────────────────────────────────────────
   ctfd:
     image: ctfd/ctfd:3.7.5
+    pull_policy: always
     container_name: forticnapp-ctfd
     restart: unless-stopped
     ports:
@@ -52,6 +53,7 @@ services:
   # ── Database ───────────────────────────────────────────────────────────────
   db:
     image: mariadb:10.11
+    pull_policy: always
     container_name: forticnapp-ctfd-db
     restart: unless-stopped
     environment:
@@ -79,6 +81,7 @@ services:
   # ── Cache ──────────────────────────────────────────────────────────────────
   cache:
     image: redis:7-alpine
+    pull_policy: always
     container_name: forticnapp-ctfd-cache
     restart: unless-stopped
     volumes:
@@ -96,6 +99,7 @@ services:
   # docker compose run --rm bridge-static
   bridge-static:
     build: ./static_ctf
+    pull_policy: always
     container_name: forticnapp-ctf-bridge-static
     restart: "no"
     environment:
@@ -116,6 +120,7 @@ services:
   # docker compose run --rm bridge
   bridge:
     build: ./forticnapp_ctf_api
+    pull_policy: always
     container_name: forticnapp-ctf-bridge
     restart: "no"
     environment:
@@ -144,6 +149,7 @@ services:
     build:
       context: .
       dockerfile: trigger/Dockerfile
+    pull_policy: always
     container_name: forticnapp-ctf-trigger
     restart: unless-stopped
     # No host port — trigger is an internal service.
@@ -172,6 +178,7 @@ services:
     build:
       context: ./caddy
       dockerfile: Dockerfile
+    pull_policy: always
     container_name: forticnapp-ctf-caddy
     restart: unless-stopped
     ports:
