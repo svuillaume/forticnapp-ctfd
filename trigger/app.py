@@ -9,7 +9,7 @@ JavaScript so presenters can switch modes from the browser.
 Endpoints:
   POST /run/static          — run bridge-static (YAML challenges)
   POST /run/dynamic         — run bridge (live FortiCNAPP API)
-  POST /reset               — delete all CTFd challenges (server-side, no token in browser)
+  POST /reset               — delete all challenges then load 5 default CNAPP questions
   GET  /status/static|dynamic — last build status + tail of log
   GET  /health              — liveness probe
 
@@ -44,6 +44,7 @@ CTFD_URL    = os.environ.get('CTFD_API_URL', 'http://ctfd:8000')
 STATUS: dict = {
     'static':  {'status': 'idle', 'log': '', 'started': None, 'finished': None},
     'dynamic': {'status': 'idle', 'log': '', 'started': None, 'finished': None},
+    'reset':   {'status': 'idle', 'log': '', 'started': None, 'finished': None},
 }
 LOCK: dict = {
     'static':  threading.Lock(),
@@ -55,7 +56,7 @@ LOCK: dict = {
 # ── Build runners ─────────────────────────────────────────────────────────────
 
 def _run_static():
-    """Run bridge-static build in-process (imports build.py)."""
+    """Clear all challenges then run the full CTF Lab build (21 challenges)."""
     import importlib.util, io, unittest.mock as mock
 
     s = STATUS['static']
@@ -64,8 +65,13 @@ def _run_static():
     s['started'] = time.time()
     s['finished'] = None
 
-    old_out, old_err = sys.stdout, sys.stderr
     buf = io.StringIO()
+    buf.write('=== Clearing existing challenges ===\n')
+    result = _delete_all_challenges()
+    buf.write(f"Deleted {result['deleted']} challenge(s).\n\n")
+    buf.write('=== Building CTF Lab challenges ===\n')
+
+    old_out, old_err = sys.stdout, sys.stderr
     sys.stdout = sys.stderr = buf
 
     try:
@@ -89,12 +95,16 @@ def _run_static():
 
 def _run_dynamic(account: str = '', key_id: str = '', secret: str = '',
                  subaccount: str = ''):
-    """Run bridge (dynamic FortiCNAPP API build) via subprocess."""
+    """Clear all challenges then run the dynamic FortiCNAPP API build."""
     s = STATUS['dynamic']
     s['status']  = 'running'
     s['log']     = ''
     s['started'] = time.time()
     s['finished'] = None
+
+    # Clear existing challenges first (clean slate before live build)
+    clear_result = _delete_all_challenges()
+    prefix_log = f"=== Cleared {clear_result['deleted']} existing challenge(s) ===\n\n"
 
     env = os.environ.copy()
     if account:    env['FORTICNAPP_ACCOUNT']   = account
@@ -109,28 +119,28 @@ def _run_dynamic(account: str = '', key_id: str = '', secret: str = '',
             env=env, cwd='/app',
         )
         s['status'] = 'success' if result.returncode == 0 else 'error'
-        s['log']    = (result.stdout + result.stderr)[-4000:]
+        s['log']    = prefix_log + (result.stdout + result.stderr)[-3800:]
     except FileNotFoundError:
         s['status'] = 'error'
-        s['log']    = 'Dynamic bridge not found at /app/dynamic.'
+        s['log']    = prefix_log + 'Dynamic bridge not found at /app/dynamic.'
     except subprocess.TimeoutExpired:
         s['status'] = 'error'
-        s['log']    = 'Build timed out after 300 s.'
+        s['log']    = prefix_log + 'Build timed out after 300 s.'
     except Exception as exc:
         s['status'] = 'error'
-        s['log']    = str(exc)
+        s['log']    = prefix_log + str(exc)
     finally:
         s['finished'] = time.time()
 
 
 # ── Reset helper (server-side — token never leaves this container) ─────────────
 
-def _do_reset() -> dict:
+def _delete_all_challenges() -> dict:
     """Delete all CTFd challenges using the server-side admin token."""
     import requests as req_lib
 
     if not ADMIN_TOKEN:
-        return {'deleted': 0, 'error': 'CTFD_ADMIN_TOKEN not set in trigger container'}
+        return {'deleted': 0, 'failed': 0, 'error': 'CTFD_ADMIN_TOKEN not set in trigger container'}
 
     headers = {
         'Authorization': f'Token {ADMIN_TOKEN}',
@@ -142,7 +152,7 @@ def _do_reset() -> dict:
         r.raise_for_status()
         chals = r.json().get('data', [])
     except Exception as e:
-        return {'deleted': 0, 'error': f'Could not list challenges: {e}'}
+        return {'deleted': 0, 'failed': 0, 'error': f'Could not list challenges: {e}'}
 
     deleted, failed = 0, 0
     for ch in chals:
@@ -158,8 +168,57 @@ def _do_reset() -> dict:
             failed += 1
             logger.warning('Delete challenge %d error: %s', ch['id'], e)
 
-    logger.info('Reset: deleted=%d failed=%d', deleted, failed)
+    logger.info('Cleared challenges: deleted=%d failed=%d', deleted, failed)
     return {'deleted': deleted, 'failed': failed}
+
+
+def _run_reset():
+    """Delete all challenges then load the 5 default CNAPP intro questions."""
+    s = STATUS['reset']
+    s['status']  = 'running'
+    s['log']     = ''
+    s['started'] = time.time()
+    s['finished'] = None
+
+    import io, importlib.util
+    import unittest.mock as mock
+
+    buf = io.StringIO()
+    buf.write('=== Clearing all challenges ===\n')
+
+    result = _delete_all_challenges()
+    buf.write(f"Deleted {result['deleted']} challenge(s).\n")
+    if result.get('error'):
+        buf.write(f"ERROR: {result['error']}\n")
+        s['status']   = 'error'
+        s['log']      = buf.getvalue()
+        s['finished'] = time.time()
+        return
+
+    buf.write('\n=== Loading default CNAPP challenges ===\n')
+    old_out, old_err = sys.stdout, sys.stderr
+    sys.stdout = sys.stderr = buf
+
+    try:
+        spec = importlib.util.spec_from_file_location('build', '/app/build.py')
+        mod  = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        # Load only the 'default' category (5 intro CNAPP questions)
+        with mock.patch('sys.argv', ['build.py', '--build', '--category', 'default']):
+            mod.main()
+        s['status'] = 'success'
+    except SystemExit as e:
+        s['status'] = 'success' if str(e) == '0' else 'error'
+    except Exception:
+        logger.exception('Default challenge load failed')
+        s['status'] = 'error'
+    finally:
+        sys.stdout = old_out
+        sys.stderr = old_err
+        s['log']      = buf.getvalue()[-4000:]
+        s['finished'] = time.time()
+
+    logger.info('Reset complete: status=%s', s['status'])
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
@@ -172,7 +231,7 @@ def health():
 @app.route('/status/<mode>')
 def status(mode):
     if mode not in STATUS:
-        abort(400, description='Unknown mode. Use static or dynamic.')
+        abort(400, description='Unknown mode. Use static, dynamic, or reset.')
     return jsonify(STATUS[mode].copy())
 
 
@@ -212,12 +271,14 @@ def run_dynamic():
 
 @app.route('/reset', methods=['POST'])
 def reset():
-    """Delete all CTFd challenges server-side. No token needed from the browser."""
+    """Delete all challenges then load 5 default CNAPP intro questions (async)."""
     with LOCK['reset']:
-        result = _do_reset()
-    if 'error' in result:
-        return jsonify({'ok': False, **result}), 500
-    return jsonify({'ok': True, **result}), 200
+        if STATUS['reset']['status'] == 'running':
+            return jsonify({'queued': False, 'reason': 'already_running',
+                            'status': STATUS['reset']}), 409
+    threading.Thread(target=_run_reset, daemon=True).start()
+    return jsonify({'queued': True, 'mode': 'reset',
+                    'message': 'Reset started — clearing challenges and loading defaults.'}), 202
 
 
 @app.route('/run/<mode>', methods=['POST'])

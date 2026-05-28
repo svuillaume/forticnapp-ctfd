@@ -313,7 +313,19 @@ function _updateModeStatus(hasChals) {
   const mode = localStorage.getItem('fctf_mode');
   const el = document.getElementById('fctf-mode-status');
   if (!el) return;
-  if (!hasChals || !mode) { el.style.display = 'none'; return; }
+  if (!hasChals) { el.style.display = 'none'; return; }
+  if (!mode) {
+    // Challenges exist but no mode set — likely the default 5 questions
+    el.style.display = 'flex';
+    el.style.borderColor = '#64748b';
+    el.style.color       = '#94a3b8';
+    el.style.background  = 'rgba(100,116,139,0.08)';
+    el.innerHTML = '<i class="fas fa-info-circle" style="margin-right:0.5rem"></i>'
+      + '<strong>Default view</strong>&nbsp;— 5 intro CNAPP questions loaded'
+      + '&nbsp;·&nbsp;Load <strong>CTF Lab</strong> or <strong>Live CTF</strong> to start the full challenge'
+      + ' &nbsp;<a href="/challenges" style="color:inherit;opacity:0.75;margin-left:0.5rem">Preview questions &rarr;</a>';
+    return;
+  }
   const isLab = (mode === 'ctf-lab');
   el.style.display = 'flex';
   el.style.borderColor = isLab ? '#DA291C' : '#00b0cc';
@@ -330,29 +342,67 @@ function _updateModeStatus(hasChals) {
 
 document.addEventListener('DOMContentLoaded', checkExistingChallenges);
 
-// ── RESET mode (delete all challenges via trigger service — no token in browser) ─
+// ── RESET mode — clears all challenges then loads 5 default CNAPP questions ──
 async function resetMode(mode) {
   const btn = document.getElementById('btn-reset-' + mode);
   btn.disabled = true;
-  btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i>';
-  showToast('🗑  Clearing challenges…', 'info');
+  btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Resetting…';
+  showToast('🔄  Resetting to default questions…', 'info');
 
   try {
-    // Trigger service handles deletion server-side using its own token
-    const r    = await fetch(TRIGGER_URL + '/reset', { method: 'POST' });
+    const r = await fetch(TRIGGER_URL + '/reset', { method: 'POST' });
     const data = await r.json();
-    if (!r.ok) throw new Error(data.error || r.status);
 
+    if (r.status === 409) {
+      showToast('⏳  Reset already running. Please wait.', 'warn');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-trash-alt"></i> Reset';
+      return;
+    }
+    if (!r.ok) throw new Error(data.error || ('HTTP ' + r.status));
+
+    // Async — poll for completion
     localStorage.removeItem('fctf_mode');
     disableStartBtn('static');
     disableStartBtn('dynamic');
-    showToast('✅  Reset complete — ' + data.deleted + ' challenge(s) removed.', 'success');
+    showToast('⚙️  Clearing challenges and loading defaults…', 'info');
+    await _pollResetStatus(btn);
   } catch (e) {
     showToast('❌  Reset failed: ' + e.message, 'error');
-  } finally {
     btn.disabled = false;
     btn.innerHTML = '<i class="fas fa-trash-alt"></i> Reset';
   }
+}
+
+async function _pollResetStatus(btn) {
+  let attempts = 0;
+  async function check() {
+    attempts++;
+    try {
+      const resp = await fetch(TRIGGER_URL + '/status/reset');
+      const data = await resp.json();
+      if (data.status === 'success') {
+        showToast('✅  Reset complete — 5 default CNAPP questions loaded. Reloading…', 'success');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-trash-alt"></i> Reset';
+        setTimeout(() => window.location.reload(), 1800);
+      } else if (data.status === 'error') {
+        showToast('❌  Reset failed. Check admin logs.', 'error');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-trash-alt"></i> Reset';
+      } else if (attempts < 40) {
+        setTimeout(check, 4000);
+      } else {
+        showToast('⏱  Reset timed out.', 'warn');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-trash-alt"></i> Reset';
+      }
+    } catch {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-trash-alt"></i> Reset';
+    }
+  }
+  setTimeout(check, 2500);
 }
 
 // ── Credentials modal ─────────────────────────────────────────────────────────

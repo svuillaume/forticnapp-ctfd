@@ -1,0 +1,164 @@
+---
+challenges:
+
+- name: "What is CNAPP?"
+  value: 50
+  type: standard
+  state: visible
+  description: |
+    ## Cloud-Native Application Protection Platform
+
+    **CNAPP** is a unified cloud security platform that combines multiple
+    disciplines to protect cloud-native applications from build time to runtime.
+
+    ## Question
+    What does the acronym **CNAPP** stand for?
+
+    Enter each word separated by underscores, all lowercase.
+
+    > **Hint:** Fortinet acquired Lacework to build its CNAPP offering — FortiCNAPP.
+
+    ## Flag format
+    `FLAG{word_word_word_word_word}`
+  flags:
+  - type: static
+    data: case_insensitive
+    content: 'FLAG{cloud_native_application_protection_platform}'
+  hints:
+  - content: >
+      Think: what type of applications does this platform protect, and in what environment?
+      Cloud + Native + Application + Protection + Platform.
+    cost: 0
+  tags:
+  - value: default
+  - value: cnapp
+  - value: basics
+
+- name: "What is CSPM?"
+  value: 50
+  type: standard
+  state: visible
+  description: |
+    ## Cloud Security Posture Management
+
+    One of the core pillars of FortiCNAPP continuously scans your cloud
+    infrastructure for **misconfigurations** and compliance violations
+    against benchmarks like CIS, NIST, PCI-DSS, and SOC 2.
+
+    ## Question
+    What does **CSPM** stand for?
+
+    Enter each word separated by underscores, all lowercase.
+
+    ## Flag format
+    `FLAG{word_word_word_word}`
+  flags:
+  - type: static
+    data: case_insensitive
+    content: 'FLAG{cloud_security_posture_management}'
+  hints:
+  - content: >
+      It manages your cloud security "posture" — the overall state of
+      your configuration hygiene. Cloud + Security + Posture + Management.
+    cost: 0
+  tags:
+  - value: default
+  - value: cspm
+  - value: basics
+
+- name: "What is CWPP?"
+  value: 50
+  type: standard
+  state: visible
+  description: |
+    ## Cloud Workload Protection Platform
+
+    FortiCNAPP scans running workloads — VMs, containers, and serverless
+    functions — for vulnerabilities, malware, and exposed secrets, both
+    with agents and **agentlessly** (no software installed on the host).
+
+    ## Question
+    What does **CWPP** stand for?
+
+    Enter each word separated by underscores, all lowercase.
+
+    ## Flag format
+    `FLAG{word_word_word_word}`
+  flags:
+  - type: static
+    data: case_insensitive
+    content: 'FLAG{cloud_workload_protection_platform}'
+  hints:
+  - content: >
+      It protects your cloud "workloads" (VMs, containers, functions).
+      Cloud + Workload + Protection + Platform.
+    cost: 0
+  tags:
+  - value: default
+  - value: cwpp
+  - value: basics
+
+- name: "What is CIEM?"
+  value: 50
+  type: standard
+  state: visible
+  description: |
+    ## Cloud Infrastructure Entitlements Management
+
+    Over-privileged IAM roles and service accounts are among the top
+    cloud attack vectors. This FortiCNAPP capability maps every identity,
+    its permissions, and its actual usage to surface **excessive entitlements**.
+
+    ## Question
+    What does **CIEM** stand for?
+
+    Enter each word separated by underscores, all lowercase.
+
+    ## Flag format
+    `FLAG{word_word_word_word}`
+  flags:
+  - type: static
+    data: case_insensitive
+    content: 'FLAG{cloud_infrastructure_entitlements_management}'
+  hints:
+  - content: >
+      It manages who is entitled to do what in your cloud infrastructure.
+      Cloud + Infrastructure + Entitlements + Management.
+    cost: 0
+  tags:
+  - value: default
+  - value: ciem
+  - value: basics
+
+- name: "Top Cloud Risk: One Word"
+  value: 50
+  type: standard
+  state: visible
+  description: |
+    ## The #1 Cloud Security Risk
+
+    According to every major cloud security report (CSA, Gartner, Verizon DBIR),
+    the leading cause of cloud data breaches is not a sophisticated zero-day —
+    it is something far more mundane: a **single, preventable error** made
+    when configuring cloud services.
+
+    ## Question
+    What **one-word term** describes the leading root cause of cloud breaches —
+    when a cloud service or resource is set up insecurely due to a human error
+    or default setting left unchanged?
+
+    ## Flag format
+    `FLAG{oneword}`
+  flags:
+  - type: static
+    data: case_insensitive
+    content: 'FLAG{misconfiguration}'
+  hints:
+  - content: >
+      It's a 16-letter word. An S3 bucket left public, an SSH port open to the world,
+      MFA disabled on the root account — these are all examples of this.
+    cost: 0
+  tags:
+  - value: default
+  - value: cloud-risk
+  - value: basics

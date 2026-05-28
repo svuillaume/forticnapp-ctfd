@@ -480,13 +480,13 @@ def start(env: dict) -> None:
 
     if first_boot or n_challenges == 0:
         if first_boot:
-            print(f"\n{CYAN}First start — applying Fortinet theme and home page…{RESET}")
+            print(f"\n{CYAN}First start — applying Fortinet theme, home page, and default questions…{RESET}")
         else:
-            print(f"\n{YELLOW}⚠  No challenges found — restoring theme, home page, and CTF Lab challenges…{RESET}")
-        print(f"{DIM}(running bridge-static — this takes ~30 s){RESET}\n")
-        run(["docker", "compose", "run", "--rm", "bridge-static"])
-        print(f"\n{GREEN}✅  Theme, home page, and CTF Lab challenges loaded.{RESET}")
-        print(f"{DIM}Open the home page to switch to Live CTF mode or reset at any time.{RESET}")
+            print(f"\n{YELLOW}⚠  No challenges found — restoring theme, home page, and default questions…{RESET}")
+        print(f"{DIM}(running bridge-static --category default — this takes ~30 s){RESET}\n")
+        run(["docker", "compose", "run", "--rm", "bridge-static", "--category", "default"])
+        print(f"\n{GREEN}✅  Fortinet theme + home page applied. 5 default CNAPP questions loaded.{RESET}")
+        print(f"{DIM}Open the home page and click 'Load CTF Lab' or 'Load Live Challenges' to start the full event.{RESET}")
 
     print(f"\n{CYAN}Open{RESET} {BOLD}https://{fqdn}{RESET}  {DIM}(self-signed cert — accept the browser warning on first visit){RESET}")
 
