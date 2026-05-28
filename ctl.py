@@ -326,11 +326,6 @@ def setup_wizard(env: dict) -> dict:
         "FQDN  (your public domain name)",
         default=env.get("FQDN", ""))
 
-    print(f"  {DIM}HTTPS TCP port — 443 is the standard HTTPS port{RESET}")
-    changes["HTTPS_PORT"] = prompt(
-        "HTTPS TCP port         (default 443)",
-        default=env.get("HTTPS_PORT") or "443")
-
     print(f"  {DIM}DuckDNS token — log in at duckdns.org, your token is at the top of the page{RESET}")
     changes["DUCKDNS_TOKEN"] = prompt(
         "DuckDNS token          (for Let's Encrypt cert)",
@@ -396,27 +391,20 @@ def get_status() -> str:
 # ── Menu ───────────────────────────────────────────────────────────────────────
 
 def build_menu(env: dict) -> str:
-    fqdn        = env.get("FQDN", "")
-    https_port  = env.get("HTTPS_PORT") or "443"
-    token_ok    = bool(env.get("CTFD_ADMIN_TOKEN"))
-    duckdns_ok  = bool(env.get("DUCKDNS_TOKEN"))
-    cert_found  = has_cert(fqdn) if fqdn else False
-    prod_ready  = bool(fqdn and token_ok and (cert_found or duckdns_ok))
-    local_ready = bool(token_ok and not duckdns_ok)
+    fqdn       = env.get("FQDN", "")
+    token_ok   = bool(env.get("CTFD_ADMIN_TOKEN"))
+    duckdns_ok = bool(env.get("DUCKDNS_TOKEN"))
+    cert_found = has_cert(fqdn) if fqdn else False
+    prod_ready = bool(fqdn and token_ok and (cert_found or duckdns_ok))
 
     if prod_ready and cert_found:
-        url = f"https://{fqdn}:{https_port}" if https_port != "443" else f"https://{fqdn}"
-        start_info = f"{DIM}→ {url}{RESET}  {GREEN}🔒 cert ready{RESET}"
+        start_info = f"{DIM}→ https://{fqdn}{RESET}  {GREEN}🔒 cert ready{RESET}"
     elif prod_ready:
-        url = f"https://{fqdn}:{https_port}" if https_port != "443" else f"https://{fqdn}"
-        start_info = f"{DIM}→ {url}{RESET}  {YELLOW}cert will be obtained on first start{RESET}"
-    elif local_ready:
-        url = f"https://localhost:{https_port}" if https_port != "443" else "https://localhost"
-        start_info = f"{DIM}→ {url}{RESET}  {CYAN}local mode (self-signed cert){RESET}"
-    elif not token_ok:
-        start_info = f"{YELLOW}⚠  first start — token will be auto-generated{RESET}"
+        start_info = f"{DIM}→ https://{fqdn}{RESET}  {YELLOW}cert will be obtained on first start{RESET}"
+    elif token_ok:
+        start_info = f"{DIM}→ https://localhost{RESET}  {CYAN}local mode (self-signed cert){RESET}"
     else:
-        start_info = f"{YELLOW}⚠  FQDN or DUCKDNS_TOKEN missing — press s{RESET}"
+        start_info = f"{YELLOW}⚠  first start — token will be auto-generated{RESET}"
 
     return f"""
 {BOLD}{RED}╔══════════════════════════════════════════╗
@@ -494,9 +482,8 @@ def run(cmd: list[str]) -> bool:
 
 
 def start(env: dict) -> None:
-    fqdn       = env.get("FQDN", "")
-    https_port = env.get("HTTPS_PORT") or "443"
-    token_ok   = bool(env.get("CTFD_ADMIN_TOKEN"))
+    fqdn     = env.get("FQDN", "")
+    token_ok = bool(env.get("CTFD_ADMIN_TOKEN"))
 
     cert_found = has_cert(fqdn) if fqdn else False
     https_ready = bool(fqdn and token_ok and (cert_found or env.get("DUCKDNS_TOKEN")))
@@ -542,18 +529,14 @@ def start(env: dict) -> None:
 
     invalidate_cert_cache()
 
-    duckdns_ok = bool(env.get("DUCKDNS_TOKEN"))
-    if fqdn and duckdns_ok:
-        # Production HTTPS — Let's Encrypt via DuckDNS
-        url = f"https://{fqdn}:{https_port}" if https_port != "443" else f"https://{fqdn}"
+    if fqdn and env.get("DUCKDNS_TOKEN"):
+        # Production — Let's Encrypt cert via DuckDNS DNS-01
         src = "existing cert" if cert_found else "new cert — Caddy is obtaining it (~30 s)"
-        print(f"\n{CYAN}Open{RESET} {BOLD}{url}{RESET}  {DIM}({src}){RESET}")
-        print(f"{DIM}HTTP → HTTPS redirect is active on port 80.{RESET}")
+        print(f"\n{CYAN}Open{RESET} {BOLD}https://{fqdn}{RESET}  {DIM}({src}){RESET}")
+        print(f"{DIM}HTTP → HTTPS redirect active on port 80.{RESET}")
     else:
-        # Local mode — self-signed cert
-        url = f"https://localhost:{https_port}" if https_port != "443" else "https://localhost"
-        print(f"\n{CYAN}Open{RESET} {BOLD}{url}{RESET}  {DIM}(self-signed cert — accept the browser warning){RESET}")
-        print(f"{DIM}Trigger API → https://localhost:5555{RESET}")
+        # Local mode — Caddy self-signed cert
+        print(f"\n{CYAN}Open{RESET} {BOLD}https://localhost{RESET}  {DIM}(self-signed cert — accept the browser warning){RESET}")
 
 
 # ── Entry ──────────────────────────────────────────────────────────────────────

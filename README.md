@@ -94,7 +94,7 @@ The wizard walks through **3 sections**:
 | Section | What it asks |
 |---|---|
 | **CTFd internal** | DB passwords (default `root`/`root`), CTFd admin token |
-| **HTTPS** | Your FQDN, HTTPS port (default `443`), DuckDNS token |
+| **HTTPS** | Your FQDN, DuckDNS token (port 443 is fixed) |
 | **FortiCNAPP API** | Account, Key ID, Secret — for Live CTF mode only |
 
 > The CTFd admin token does not exist yet at this point — leave it blank and fill it in after step 3.  
