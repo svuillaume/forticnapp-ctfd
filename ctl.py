@@ -555,14 +555,13 @@ def main() -> None:
             start(env)
 
         elif choice == "4":
-            c = input(f"{RED}{BOLD}⚠️  DESTROY — stops all containers and wipes all data. Type YES to confirm: {RESET}").strip()
+            c = input(f"{RED}{BOLD}⚠️  DESTROY — stops all containers, wipes volumes AND removes all images. Type YES to confirm: {RESET}").strip()
             if c == "YES":
                 run(["docker", "compose", "stop"])
-                ok = run(["docker", "compose", "down", "-v", "--remove-orphans"])
-                if ok:
-                    write_env({"CTFD_ADMIN_TOKEN": ""})
-                    print(f"{GREEN}✅  Stack destroyed. All data wiped.{RESET}")
-                    print(f"{DIM}Press 1 to start fresh.{RESET}")
+                run(["docker", "compose", "down", "-v", "--remove-orphans", "--rmi", "all"])
+                write_env({"CTFD_ADMIN_TOKEN": ""})
+                print(f"{GREEN}✅  Stack destroyed — containers, volumes, and images removed.{RESET}")
+                print(f"{DIM}Press 1 to start fresh (images will be pulled/built on next start).{RESET}")
             else:
                 print(f"{YELLOW}Cancelled.{RESET}")
 
