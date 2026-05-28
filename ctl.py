@@ -28,55 +28,6 @@ RESET  = "\033[0m"
 ROOT = Path(__file__).parent
 ENV  = ROOT / ".env"
 
-# ── TLS cert probe ─────────────────────────────────────────────────────────────
-# Caddy stores certs inside the caddy_data Docker volume at:
-#   /data/caddy/certificates/acme-v02.api.letsencrypt.org-directory/<fqdn>/
-# We spin up a throwaway alpine container (fast, ~0.3 s) to check the path.
-# Result is cached for the session so the menu stays snappy.
-
-_cert_cache: dict[str, bool] = {}
-
-def _find_caddy_volume() -> str | None:
-    """Return the caddy_data volume name (docker-compose prefixes it with project name)."""
-    try:
-        r = subprocess.run(
-            ["docker", "volume", "ls", "--filter", "name=caddy_data", "--format", "{{.Name}}"],
-            capture_output=True, text=True,
-        )
-        names = [n.strip() for n in r.stdout.strip().splitlines() if n.strip()]
-        return names[0] if names else None
-    except Exception:
-        return None
-
-def has_cert(fqdn: str) -> bool:
-    """Return True if Caddy already holds a valid cert for fqdn in its data volume."""
-    if not fqdn:
-        return False
-    if fqdn in _cert_cache:
-        return _cert_cache[fqdn]
-
-    vol = _find_caddy_volume()
-    if not vol:
-        _cert_cache[fqdn] = False
-        return False
-
-    cert_path = f"/data/caddy/certificates/acme-v02.api.letsencrypt.org-directory/{fqdn}"
-    try:
-        r = subprocess.run(
-            ["docker", "run", "--rm", "-v", f"{vol}:/data", "alpine",
-             "test", "-d", cert_path],
-            capture_output=True,
-        )
-        result = r.returncode == 0
-    except Exception:
-        result = False
-
-    _cert_cache[fqdn] = result
-    return result
-
-def invalidate_cert_cache() -> None:
-    _cert_cache.clear()
-
 # ── .env helpers ───────────────────────────────────────────────────────────────
 
 def read_env() -> dict:
@@ -319,17 +270,12 @@ def setup_wizard(env: dict) -> dict:
 
     # ── Section 2: HTTPS ───────────────────────────────────────────────────────
     print(f"\n{BOLD}2 / 3  HTTPS{RESET}")
-    print(f"  {DIM}HTTP traffic on port 80 is automatically redirected to HTTPS by Caddy.{RESET}")
+    print(f"  {DIM}Caddy uses a self-signed cert (tls internal). Leave FQDN blank to use localhost.{RESET}")
+    print(f"  {DIM}Set FQDN to your hostname/IP if participants connect from other machines.{RESET}")
 
-    print(f"\n  {DIM}Your DuckDNS subdomain — e.g. samvblogs.duckdns.org{RESET}")
     changes["FQDN"] = prompt(
-        "FQDN  (your public domain name)",
+        "FQDN  (hostname or IP — blank = localhost)",
         default=env.get("FQDN", ""))
-
-    print(f"  {DIM}DuckDNS token — log in at duckdns.org, your token is at the top of the page{RESET}")
-    changes["DUCKDNS_TOKEN"] = prompt(
-        "DuckDNS token          (for Let's Encrypt cert)",
-        default=env.get("DUCKDNS_TOKEN", ""), secret=True)
 
     # ── Section 3: FortiCNAPP API ──────────────────────────────────────────────
     print(f"\n{BOLD}3 / 3  FortiCNAPP API credentials  (Live CTF mode only — skip if using CTF Lab){RESET}")
@@ -391,18 +337,12 @@ def get_status() -> str:
 # ── Menu ───────────────────────────────────────────────────────────────────────
 
 def build_menu(env: dict) -> str:
-    fqdn       = env.get("FQDN", "")
-    token_ok   = bool(env.get("CTFD_ADMIN_TOKEN"))
-    duckdns_ok = bool(env.get("DUCKDNS_TOKEN"))
-    cert_found = has_cert(fqdn) if fqdn else False
-    prod_ready = bool(fqdn and token_ok and (cert_found or duckdns_ok))
+    fqdn     = env.get("FQDN") or "localhost"
+    token_ok = bool(env.get("CTFD_ADMIN_TOKEN"))
 
-    if prod_ready and cert_found:
-        start_info = f"{DIM}→ https://{fqdn}{RESET}  {GREEN}🔒 cert ready{RESET}"
-    elif prod_ready:
-        start_info = f"{DIM}→ https://{fqdn}{RESET}  {YELLOW}cert will be obtained on first start{RESET}"
-    elif token_ok:
-        start_info = f"{DIM}→ https://localhost{RESET}  {CYAN}local mode (self-signed cert){RESET}"
+    url = f"https://{fqdn}"
+    if token_ok:
+        start_info = f"{DIM}→ {url}{RESET}  {CYAN}self-signed cert{RESET}"
     else:
         start_info = f"{YELLOW}⚠  first start — token will be auto-generated{RESET}"
 
@@ -482,15 +422,10 @@ def run(cmd: list[str]) -> bool:
 
 
 def start(env: dict) -> None:
-    fqdn     = env.get("FQDN", "")
     token_ok = bool(env.get("CTFD_ADMIN_TOKEN"))
+    fqdn     = env.get("FQDN") or "localhost"
 
-    cert_found = has_cert(fqdn) if fqdn else False
-    https_ready = bool(fqdn and token_ok and (cert_found or env.get("DUCKDNS_TOKEN")))
-
-    # ── First-boot path: token not yet set ────────────────────────────────────
-    # Start db + cache + ctfd, auto-complete the CTFd setup wizard, generate
-    # an admin token, save it to .env, then launch the full stack.
+    # ── First-boot: no token yet ───────────────────────────────────────────────
     if not token_ok:
         if not env.get("CTFD_ADMIN_PASSWORD"):
             print(f"\n{RED}Cannot auto-configure — CTFD_ADMIN_PASSWORD is not set.{RESET}")
@@ -508,35 +443,18 @@ def start(env: dict) -> None:
             write_env({"CTFD_ADMIN_TOKEN": token})
             env["CTFD_ADMIN_TOKEN"] = token
             print(f"  {GREEN}✅  Admin token saved to .env{RESET}")
-            # Re-evaluate readiness now that we have a token
-            token_ok   = True
-            https_ready = bool(fqdn and (cert_found or env.get("DUCKDNS_TOKEN")))
         else:
             print(f"\n{YELLOW}⚠  Could not auto-generate token.{RESET}")
-            print(f"{DIM}CTFd is running at http://localhost:8000{RESET}")
-            print(f"{DIM}1. Complete the setup wizard manually{RESET}")
-            print(f"{DIM}2. Admin Panel → Settings → Tokens → Generate{RESET}")
-            print(f"{DIM}3. Press s here → paste token → press 1 to start full stack{RESET}")
+            print(f"{DIM}CTFd is at http://localhost:8000 — complete the wizard manually,{RESET}")
+            print(f"{DIM}then Admin Panel → Settings → Tokens → Generate, press s to paste it.{RESET}")
             return
 
-    # ── Start full stack ───────────────────────────────────────────────────────
-    # Caddy auto-selects its config at runtime:
-    #   DUCKDNS_TOKEN set   → production Caddyfile  (Let's Encrypt + DuckDNS)
-    #   DUCKDNS_TOKEN unset → Caddyfile.local        (self-signed cert, localhost)
+    # ── Full stack ─────────────────────────────────────────────────────────────
     ok = run(["docker", "compose", "up", "-d", "db", "cache", "ctfd", "trigger", "caddy"])
     if not ok:
         return
 
-    invalidate_cert_cache()
-
-    if fqdn and env.get("DUCKDNS_TOKEN"):
-        # Production — Let's Encrypt cert via DuckDNS DNS-01
-        src = "existing cert" if cert_found else "new cert — Caddy is obtaining it (~30 s)"
-        print(f"\n{CYAN}Open{RESET} {BOLD}https://{fqdn}{RESET}  {DIM}({src}){RESET}")
-        print(f"{DIM}HTTP → HTTPS redirect active on port 80.{RESET}")
-    else:
-        # Local mode — Caddy self-signed cert
-        print(f"\n{CYAN}Open{RESET} {BOLD}https://localhost{RESET}  {DIM}(self-signed cert — accept the browser warning){RESET}")
+    print(f"\n{CYAN}Open{RESET} {BOLD}https://{fqdn}{RESET}  {DIM}(self-signed cert — accept the browser warning on first visit){RESET}")
 
 
 # ── Entry ──────────────────────────────────────────────────────────────────────
@@ -572,15 +490,14 @@ def main() -> None:
             start(env)
 
         elif choice == "4":
-            c = input(f"{RED}{BOLD}⚠️  DESTROY — removes all containers and volumes. Type YES to confirm: {RESET}").strip()
+            c = input(f"{RED}{BOLD}⚠️  DESTROY — stops all containers and wipes all data. Type YES to confirm: {RESET}").strip()
             if c == "YES":
+                run(["docker", "compose", "stop"])
                 ok = run(["docker", "compose", "down", "-v", "--remove-orphans"])
                 if ok:
-                    # Clear the admin token — CTFd DB is gone, token is invalid
                     write_env({"CTFD_ADMIN_TOKEN": ""})
-                    invalidate_cert_cache()
-                    print(f"{GREEN}✅  Stack destroyed. CTFD_ADMIN_TOKEN cleared.{RESET}")
-                    print(f"{DIM}Press 1 to rebuild from scratch.{RESET}")
+                    print(f"{GREEN}✅  Stack destroyed. All data wiped.{RESET}")
+                    print(f"{DIM}Press 1 to start fresh.{RESET}")
             else:
                 print(f"{YELLOW}Cancelled.{RESET}")
 

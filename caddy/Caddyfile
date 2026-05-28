@@ -1,22 +1,21 @@
 {
-    # ACME account email — Let's Encrypt sends expiry notices here
-    email vuillaumes@gmail.com
+    # Use Caddy's built-in local CA for all certs (no Let's Encrypt)
+    local_certs
 
-    # Caddy admin API — internal health checks only (never expose to internet)
+    # Caddy admin API — internal health checks only
     admin 0.0.0.0:2019
 }
 
-# ── CTFd — HTTPS on port 443 (default) ───────────────────────────────────────
+# ── CTFd ──────────────────────────────────────────────────────────────────────
+# FQDN defaults to "localhost" (see docker-compose).
+# Caddy auto-issues a self-signed cert for whatever hostname is set.
 {env.FQDN} {
 
-    tls {
-        dns duckdns {env.DUCKDNS_TOKEN}
-    }
+    tls internal
 
     encode gzip
 
     header {
-        Strict-Transport-Security "max-age=31536000; includeSubDomains"
         X-Content-Type-Options    nosniff
         X-Frame-Options           SAMEORIGIN
         Referrer-Policy           strict-origin-when-cross-origin
@@ -33,12 +32,10 @@
     }
 }
 
-# ── Trigger service — HTTPS on port 5555 ─────────────────────────────────────
+# ── Trigger service — port 5555 ───────────────────────────────────────────────
 {env.FQDN}:5555 {
 
-    tls {
-        dns duckdns {env.DUCKDNS_TOKEN}
-    }
+    tls internal
 
     header {
         Access-Control-Allow-Origin  "https://{env.FQDN}"
