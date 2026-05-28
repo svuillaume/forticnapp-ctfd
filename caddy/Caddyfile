@@ -7,8 +7,9 @@
 }
 
 # ── CTFd — HTTPS ──────────────────────────────────────────────────────────────
-# FQDN and HTTPS_PORT are injected from .env via docker-compose environment block.
-{env.FQDN}:{env.HTTPS_PORT} {
+# FQDN is injected from .env. Port 443 is Caddy's default for HTTPS — no need
+# to specify it; {env.HTTPS_PORT} cannot be used in port position by Caddy.
+{env.FQDN} {
 
     # TLS via Let's Encrypt DNS-01 challenge (DuckDNS).
     # Caddy calls the DuckDNS API to create the _acme-challenge TXT record.
@@ -31,13 +32,11 @@
 
     # CTFd reverse proxy — preserve host + forward IP for REVERSE_PROXY=true
     reverse_proxy ctfd:8000 {
-        header_up Host              {upstream_hostport}
-        header_up X-Forwarded-For  {remote_host}
-        header_up X-Forwarded-Proto {scheme}
-        header_up X-Real-IP         {remote_host}
+        header_up Host        {upstream_hostport}
+        header_up X-Real-IP   {remote_host}
         # WebSocket support (CTFd uses Socket.IO for real-time updates)
-        header_up Connection        {http.request.header.Connection}
-        header_up Upgrade           {http.request.header.Upgrade}
+        header_up Connection  {http.request.header.Connection}
+        header_up Upgrade     {http.request.header.Upgrade}
     }
 }
 
