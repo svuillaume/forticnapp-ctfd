@@ -435,6 +435,27 @@ def _ctfd_challenge_count(token: str) -> int:
         return 0
 
 
+def _trigger_reset(env: dict, max_wait: int = 60) -> None:
+    """Call the trigger service /reset endpoint to load 5 random default challenges."""
+    TRIGGER_LOCAL = "http://localhost:5555"
+    deadline = time.time() + max_wait
+    while time.time() < deadline:
+        try:
+            req = urllib.request.Request(
+                f"{TRIGGER_LOCAL}/reset",
+                data=b"",
+                method="POST",
+            )
+            r = urllib.request.urlopen(req, timeout=10)
+            print(f"{GREEN}✅  5 random default CNAPP questions loading…{RESET}")
+            print(f"{DIM}Open the home page → Load CTF Lab or Load Live Challenges to start the full event.{RESET}")
+            return
+        except Exception:
+            print(f"{DIM}  Waiting for trigger service…{RESET}")
+            time.sleep(4)
+    print(f"{YELLOW}⚠  Trigger service not reachable — run Reset from the home page.{RESET}")
+
+
 def start(env: dict) -> None:
     token_ok   = bool(env.get("CTFD_ADMIN_TOKEN"))
     fqdn       = env.get("FQDN") or "localhost"
@@ -478,14 +499,12 @@ def start(env: dict) -> None:
     print(f"{DIM}(bridge-static --theme-only){RESET}")
     run(["docker", "compose", "run", "--rm", "bridge-static", "--theme-only"])
 
-    # ── Load default challenges if database is empty ───────────────────────────
+    # ── Load 5 random default challenges if database is empty ────────────────
     n_challenges = _ctfd_challenge_count(token)
     if n_challenges == 0:
-        print(f"\n{YELLOW}No challenges found — loading 5 default CNAPP questions…{RESET}")
-        print(f"{DIM}(bridge-static --category default){RESET}\n")
-        run(["docker", "compose", "run", "--rm", "bridge-static", "--category", "default"])
-        print(f"\n{GREEN}✅  5 default CNAPP questions loaded.{RESET}")
-        print(f"{DIM}Open the home page → 'Load CTF Lab' or 'Load Live Challenges' to start the full event.{RESET}")
+        print(f"\n{YELLOW}No challenges found — loading 5 random default CNAPP questions via trigger…{RESET}")
+        # Give the trigger a moment to be fully ready, then call its reset endpoint
+        _trigger_reset(env)
     else:
         print(f"{GREEN}✅  Fortinet theme + home page applied ({n_challenges} challenge(s) already loaded).{RESET}")
 

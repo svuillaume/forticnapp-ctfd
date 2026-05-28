@@ -133,6 +133,292 @@ def _run_dynamic(account: str = '', key_id: str = '', secret: str = '',
         s['finished'] = time.time()
 
 
+# ── Default question pool (25 questions, 5 picked randomly on every Reset) ────
+
+_DEFAULT_POOL = [
+    {
+        "name": "What does CNAPP stand for?",
+        "desc": (
+            "**CNAPP** is Fortinet's unified cloud security platform.\n\n"
+            "What does the acronym stand for? Enter each word separated by underscores, all lowercase.\n\n"
+            "`FLAG{word_word_word_word_word}`"
+        ),
+        "flag": "FLAG{cloud_native_application_protection_platform}",
+        "hint": "Cloud + Native + Application + Protection + Platform",
+    },
+    {
+        "name": "What does CSPM stand for?",
+        "desc": (
+            "This FortiCNAPP pillar continuously scans your cloud for **misconfigurations** "
+            "and compliance violations against CIS, NIST, PCI-DSS, and SOC 2 benchmarks.\n\n"
+            "What does **CSPM** stand for? Underscores, lowercase.\n\n"
+            "`FLAG{word_word_word_word}`"
+        ),
+        "flag": "FLAG{cloud_security_posture_management}",
+        "hint": "It manages your cloud security posture. Cloud + Security + Posture + Management.",
+    },
+    {
+        "name": "What does CWPP stand for?",
+        "desc": (
+            "This FortiCNAPP pillar scans running **VMs, containers, and serverless functions** "
+            "for vulnerabilities, malware, and exposed secrets — agentlessly.\n\n"
+            "What does **CWPP** stand for? Underscores, lowercase.\n\n"
+            "`FLAG{word_word_word_word}`"
+        ),
+        "flag": "FLAG{cloud_workload_protection_platform}",
+        "hint": "Cloud + Workload + Protection + Platform",
+    },
+    {
+        "name": "What does CIEM stand for?",
+        "desc": (
+            "Over-privileged IAM roles are among the top cloud attack vectors. "
+            "This FortiCNAPP capability maps every identity and surfaces **excessive entitlements**.\n\n"
+            "What does **CIEM** stand for? Underscores, lowercase.\n\n"
+            "`FLAG{word_word_word_word}`"
+        ),
+        "flag": "FLAG{cloud_infrastructure_entitlements_management}",
+        "hint": "Cloud + Infrastructure + Entitlements + Management",
+    },
+    {
+        "name": "What does CDR stand for?",
+        "desc": (
+            "FortiCNAPP uses **ML-based anomaly detection** on activity logs and audit trails "
+            "to detect threats at runtime in cloud environments.\n\n"
+            "What does **CDR** stand for? Underscores, lowercase.\n\n"
+            "`FLAG{word_word_word}`"
+        ),
+        "flag": "FLAG{cloud_detection_and_response}",
+        "hint": "Think: Detect + Respond, in the cloud. Cloud + Detection + and + Response.",
+    },
+    {
+        "name": "What does DSPM stand for?",
+        "desc": (
+            "This FortiCNAPP capability discovers and classifies **sensitive data** in cloud storage "
+            "(S3, Azure Blob, GCS) and flags over-exposed buckets.\n\n"
+            "What does **DSPM** stand for? Underscores, lowercase.\n\n"
+            "`FLAG{word_word_word_word}`"
+        ),
+        "flag": "FLAG{data_security_posture_management}",
+        "hint": "Data + Security + Posture + Management",
+    },
+    {
+        "name": "#1 Cloud Risk: One Word",
+        "desc": (
+            "Every major cloud security report (CSA, Gartner, Verizon DBIR) names the same leading "
+            "root cause of cloud data breaches — not a zero-day, but a **preventable human error** "
+            "when setting up cloud services.\n\n"
+            "What **one-word term** describes this?\n\n"
+            "`FLAG{oneword}`"
+        ),
+        "flag": "FLAG{misconfiguration}",
+        "hint": "S3 bucket left public, SSH port open to the world, MFA disabled. These are all examples.",
+    },
+    {
+        "name": "What does IAM stand for?",
+        "desc": (
+            "In cloud security, this framework controls **who can do what** on which resources. "
+            "FortiCNAPP's CIEM pillar analyses it to detect excessive permissions.\n\n"
+            "What does **IAM** stand for? Underscores, lowercase.\n\n"
+            "`FLAG{word_word_word}`"
+        ),
+        "flag": "FLAG{identity_and_access_management}",
+        "hint": "Identity + and + Access + Management",
+    },
+    {
+        "name": "What does IaC stand for?",
+        "desc": (
+            "FortiCNAPP includes **code security scanning** that catches misconfigurations "
+            "before they reach production — in Terraform, CloudFormation, Bicep, and Helm.\n\n"
+            "What does **IaC** stand for? Underscores, lowercase.\n\n"
+            "`FLAG{word_word_word}`"
+        ),
+        "flag": "FLAG{infrastructure_as_code}",
+        "hint": "Your infrastructure defined in code files. Infrastructure + as + Code.",
+    },
+    {
+        "name": "What does SBOM stand for?",
+        "desc": (
+            "Supply chain attacks like SolarWinds started with a **poisoned dependency**. "
+            "This artifact lists every open-source library in a software release so you can "
+            "check each one against known CVEs.\n\n"
+            "What does **SBOM** stand for? Underscores, lowercase.\n\n"
+            "`FLAG{word_word_word_word}`"
+        ),
+        "flag": "FLAG{software_bill_of_materials}",
+        "hint": "Like a bill of materials in manufacturing, but for software. Software + Bill + of + Materials.",
+    },
+    {
+        "name": "What does RBAC stand for?",
+        "desc": (
+            "The principle of **least privilege** says users should only have the access they need. "
+            "This access control model enforces it by assigning permissions to roles, not individuals.\n\n"
+            "What does **RBAC** stand for? Underscores, lowercase.\n\n"
+            "`FLAG{word_word_word_word}`"
+        ),
+        "flag": "FLAG{role_based_access_control}",
+        "hint": "Role + Based + Access + Control",
+    },
+    {
+        "name": "What does CVE stand for?",
+        "desc": (
+            "FortiCNAPP's CWPP scans workloads and containers for known vulnerabilities, "
+            "each identified by a unique ID in this registry maintained by MITRE.\n\n"
+            "What does **CVE** stand for? Underscores, lowercase.\n\n"
+            "`FLAG{word_word_word}`"
+        ),
+        "flag": "FLAG{common_vulnerabilities_and_exposures}",
+        "hint": "A global dictionary of publicly known security flaws. Common + Vulnerabilities + and + Exposures.",
+    },
+    {
+        "name": "What does MFA stand for?",
+        "desc": (
+            "Stolen credentials are the #1 initial access vector in cloud breaches. "
+            "This control requires a second proof of identity beyond the password — "
+            "FortiCNAPP flags cloud accounts that don't enforce it.\n\n"
+            "What does **MFA** stand for? Underscores, lowercase.\n\n"
+            "`FLAG{word_word_word}`"
+        ),
+        "flag": "FLAG{multi_factor_authentication}",
+        "hint": "Multi + Factor + Authentication",
+    },
+    {
+        "name": "What does SCA stand for?",
+        "desc": (
+            "This code security technique scans your project's **open-source dependencies** "
+            "for known CVEs and licence violations — a key defence against supply chain attacks.\n\n"
+            "What does **SCA** stand for? Underscores, lowercase.\n\n"
+            "`FLAG{word_word_word}`"
+        ),
+        "flag": "FLAG{software_composition_analysis}",
+        "hint": "Software + Composition + Analysis",
+    },
+    {
+        "name": "What does SIEM stand for?",
+        "desc": (
+            "FortiCNAPP can forward cloud security events to this platform, which **aggregates "
+            "logs** from across the environment and correlates them into alerts for SOC analysts.\n\n"
+            "What does **SIEM** stand for? Underscores, lowercase.\n\n"
+            "`FLAG{word_word_word_word}`"
+        ),
+        "flag": "FLAG{security_information_and_event_management}",
+        "hint": "Security + Information + and + Event + Management",
+    },
+    {
+        "name": "What does VPC stand for?",
+        "desc": (
+            "Cloud providers let you create an isolated network segment for your workloads. "
+            "FortiCNAPP checks that **security groups and NACLs** inside this construct "
+            "follow the least-privilege rule.\n\n"
+            "What does **VPC** stand for? Underscores, lowercase.\n\n"
+            "`FLAG{word_word_word}`"
+        ),
+        "flag": "FLAG{virtual_private_cloud}",
+        "hint": "Virtual + Private + Cloud",
+    },
+    {
+        "name": "Least Privilege: Two Words",
+        "desc": (
+            "A core cloud security principle: every identity should only have the **minimum "
+            "permissions** needed to perform its task — nothing more.\n\n"
+            "Name this principle (two words, underscore-separated, lowercase).\n\n"
+            "`FLAG{word_word}`"
+        ),
+        "flag": "FLAG{least_privilege}",
+        "hint": "Think about the minimum necessary access. Least + Privilege.",
+    },
+    {
+        "name": "What does XDR stand for?",
+        "desc": (
+            "FortiCNAPP cloud detections can feed into this platform, which correlates "
+            "threats across **endpoint, network, email, and cloud** for a unified investigation view.\n\n"
+            "What does **XDR** stand for? Underscores, lowercase.\n\n"
+            "`FLAG{word_word_word}`"
+        ),
+        "flag": "FLAG{extended_detection_and_response}",
+        "hint": "Extended + Detection + and + Response",
+    },
+    {
+        "name": "What does WAF stand for?",
+        "desc": (
+            "FortiCNAPP can detect when a cloud workload is targeted by injection attacks. "
+            "The control layer that filters malicious HTTP requests before they reach the app is called…\n\n"
+            "What does **WAF** stand for? Underscores, lowercase.\n\n"
+            "`FLAG{word_word_word}`"
+        ),
+        "flag": "FLAG{web_application_firewall}",
+        "hint": "Web + Application + Firewall",
+    },
+    {
+        "name": "What does CIS stand for?",
+        "desc": (
+            "FortiCNAPP maps cloud misconfigurations to benchmarks published by this non-profit "
+            "organisation — their AWS, Azure, and GCP guides are the industry standard for "
+            "**cloud configuration hardening**.\n\n"
+            "What does **CIS** stand for? Underscores, lowercase.\n\n"
+            "`FLAG{word_word_word}`"
+        ),
+        "flag": "FLAG{center_for_internet_security}",
+        "hint": "Center + for + Internet + Security",
+    },
+    {
+        "name": "What does SAST stand for?",
+        "desc": (
+            "FortiCNAPP's code security scans source code **before it is compiled or run** "
+            "to find vulnerabilities like hardcoded secrets, SQL injection, and path traversal.\n\n"
+            "What does **SAST** stand for? Underscores, lowercase.\n\n"
+            "`FLAG{word_word_word_word}`"
+        ),
+        "flag": "FLAG{static_application_security_testing}",
+        "hint": "Static + Application + Security + Testing",
+    },
+    {
+        "name": "Shared Responsibility: Who owns OS patches?",
+        "desc": (
+            "In the cloud **shared responsibility model**, the cloud provider secures the "
+            "physical infrastructure. When you run a VM (IaaS), patching the operating system "
+            "is whose responsibility?\n\n"
+            "Answer: `FLAG{customer}` or `FLAG{provider}`"
+        ),
+        "flag": "FLAG{customer}",
+        "hint": "The cloud provider manages the hypervisor and hardware. The OS running on the VM is yours.",
+    },
+    {
+        "name": "What does TLS stand for?",
+        "desc": (
+            "FortiCNAPP flags cloud resources that expose services over unencrypted connections. "
+            "This cryptographic protocol replaced SSL and protects data **in transit**.\n\n"
+            "What does **TLS** stand for? Underscores, lowercase.\n\n"
+            "`FLAG{word_word_word}`"
+        ),
+        "flag": "FLAG{transport_layer_security}",
+        "hint": "Transport + Layer + Security",
+    },
+    {
+        "name": "What does SOC stand for?",
+        "desc": (
+            "FortiCNAPP is designed for analysts who work in this centralised team "
+            "responsible for monitoring, detecting, and responding to security incidents "
+            "across the organisation's cloud and on-premises environments.\n\n"
+            "What does **SOC** stand for? Underscores, lowercase.\n\n"
+            "`FLAG{word_word_word}`"
+        ),
+        "flag": "FLAG{security_operations_center}",
+        "hint": "Security + Operations + Center",
+    },
+    {
+        "name": "Agentless or Agent: FortiCNAPP default?",
+        "desc": (
+            "FortiCNAPP can scan cloud workloads for vulnerabilities and malware without "
+            "installing any software on the host — using cloud-provider snapshot APIs instead.\n\n"
+            "What is this scanning mode called? (one word, lowercase)\n\n"
+            "`FLAG{oneword}`"
+        ),
+        "flag": "FLAG{agentless}",
+        "hint": "No software installed on the VM. The scan happens externally via cloud APIs.",
+    },
+]
+
+
 # ── Reset helper (server-side — token never leaves this container) ─────────────
 
 def _delete_all_challenges() -> dict:
@@ -172,53 +458,124 @@ def _delete_all_challenges() -> dict:
     return {'deleted': deleted, 'failed': failed}
 
 
+def _push_default_challenges(n: int = 5) -> dict:
+    """Pick n random questions from _DEFAULT_POOL and push them to CTFd.
+
+    Returns {'created': int, 'error': str|None}.
+    """
+    import random, requests as req_lib
+
+    if not ADMIN_TOKEN:
+        return {'created': 0, 'error': 'CTFD_ADMIN_TOKEN not set'}
+
+    headers = {
+        'Authorization': f'Token {ADMIN_TOKEN}',
+        'Content-Type':  'application/json',
+    }
+
+    picks = random.sample(_DEFAULT_POOL, min(n, len(_DEFAULT_POOL)))
+    created = 0
+
+    for q in picks:
+        try:
+            # Create the challenge
+            ch_payload = {
+                'name':        q['name'],
+                'category':    'Default',
+                'description': q['desc'],
+                'value':       50,
+                'type':        'standard',
+                'state':       'visible',
+            }
+            r = req_lib.post(f'{CTFD_URL}/api/v1/challenges',
+                             json=ch_payload, headers=headers, timeout=10)
+            if not r.ok:
+                logger.warning('Create challenge failed [%d]: %s', r.status_code, r.text[:80])
+                continue
+            cid = r.json()['data']['id']
+
+            # Add flag (case-insensitive)
+            req_lib.post(f'{CTFD_URL}/api/v1/flags',
+                         json={'challenge': cid, 'content': q['flag'],
+                               'type': 'static', 'data': 'case_insensitive'},
+                         headers=headers, timeout=10)
+
+            # Add free hint
+            req_lib.post(f'{CTFD_URL}/api/v1/hints',
+                         json={'challenge': cid, 'content': q['hint'], 'cost': 0},
+                         headers=headers, timeout=10)
+
+            # Add tags
+            for tag in ('default', 'cnapp', 'basics'):
+                req_lib.post(f'{CTFD_URL}/api/v1/tags',
+                             json={'challenge': cid, 'value': tag},
+                             headers=headers, timeout=5)
+
+            created += 1
+            logger.info('Default challenge created: %s [id=%d]', q['name'], cid)
+
+        except Exception as exc:
+            logger.warning('Error creating default challenge %r: %s', q['name'], exc)
+
+    return {'created': created, 'error': None}
+
+
 def _run_reset():
-    """Delete all challenges then load the 5 default CNAPP intro questions."""
+    """Delete all challenges, pick 5 random CNAPP default questions, push them."""
     s = STATUS['reset']
     s['status']  = 'running'
     s['log']     = ''
     s['started'] = time.time()
     s['finished'] = None
 
-    import io, importlib.util
-    import unittest.mock as mock
-
-    buf = io.StringIO()
-    buf.write('=== Clearing all challenges ===\n')
-
+    lines = ['=== Clearing all challenges ===']
     result = _delete_all_challenges()
-    buf.write(f"Deleted {result['deleted']} challenge(s).\n")
+    lines.append(f"Deleted {result['deleted']} challenge(s).")
+
     if result.get('error'):
-        buf.write(f"ERROR: {result['error']}\n")
+        lines.append(f"ERROR: {result['error']}")
         s['status']   = 'error'
-        s['log']      = buf.getvalue()
+        s['log']      = '\n'.join(lines)
         s['finished'] = time.time()
         return
 
-    buf.write('\n=== Loading default CNAPP challenges + applying theme ===\n')
-    old_out, old_err = sys.stdout, sys.stderr
-    sys.stdout = sys.stderr = buf
-
-    try:
-        spec = importlib.util.spec_from_file_location('build', '/app/build.py')
-        mod  = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
-        # Load only the 'default' category (5 intro CNAPP questions) + theme
-        with mock.patch('sys.argv', ['build.py', '--build', '--category', 'default']):
-            mod.main()
-        s['status'] = 'success'
-    except SystemExit as e:
-        s['status'] = 'success' if str(e) == '0' else 'error'
-    except Exception:
-        logger.exception('Default challenge load failed')
+    lines.append('\n=== Picking 5 random default CNAPP questions ===')
+    push = _push_default_challenges(5)
+    if push.get('error'):
+        lines.append(f"ERROR: {push['error']}")
         s['status'] = 'error'
-    finally:
-        sys.stdout = old_out
-        sys.stderr = old_err
-        s['log']      = buf.getvalue()[-4000:]
-        s['finished'] = time.time()
+    elif push['created'] == 0:
+        lines.append('WARNING: No challenges created.')
+        s['status'] = 'error'
+    else:
+        lines.append(f"Created {push['created']} default challenge(s).")
+        s['status'] = 'success'
 
-    logger.info('Reset complete: status=%s', s['status'])
+    # Also reapply the Fortinet theme (fast)
+    lines.append('\n=== Re-applying Fortinet theme ===')
+    try:
+        import importlib.util, io, unittest.mock as mock
+        buf = io.StringIO()
+        old_out, old_err = sys.stdout, sys.stderr
+        sys.stdout = sys.stderr = buf
+        try:
+            spec = importlib.util.spec_from_file_location('build', '/app/build.py')
+            mod  = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            with mock.patch('sys.argv', ['build.py', '--theme-only']):
+                mod.main()
+        except SystemExit:
+            pass
+        finally:
+            sys.stdout = old_out
+            sys.stderr = old_err
+        lines.append(buf.getvalue().strip() or 'Theme applied.')
+    except Exception as exc:
+        lines.append(f'Theme apply warning: {exc}')
+
+    s['log']      = '\n'.join(lines)[-4000:]
+    s['finished'] = time.time()
+    logger.info('Reset complete: status=%s created=%d', s['status'], push.get('created', 0))
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────

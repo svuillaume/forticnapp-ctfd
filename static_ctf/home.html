@@ -328,8 +328,8 @@ function _updateModeStatus(hasChals) {
     el.style.color       = '#94a3b8';
     el.style.background  = 'rgba(100,116,139,0.08)';
     el.innerHTML = '<i class="fas fa-info-circle" style="margin-right:0.5rem"></i>'
-      + '<strong>Default view</strong>&nbsp;— 5 intro CNAPP questions loaded'
-      + '&nbsp;·&nbsp;Load <strong>CTF Lab</strong> or <strong>Live CTF</strong> to start the full challenge'
+      + '<strong>Default view</strong>&nbsp;— 5 random CNAPP warm-up questions'
+      + '&nbsp;·&nbsp;Load <strong>CTF Lab</strong> or <strong>Live CTF</strong> to start the full event'
       + ' &nbsp;<a href="/challenges" style="color:inherit;opacity:0.75;margin-left:0.5rem">Preview questions &rarr;</a>';
     return;
   }
@@ -389,7 +389,7 @@ async function _pollResetStatus(btn) {
       const resp = await fetch(TRIGGER_URL + '/status/reset');
       const data = await resp.json();
       if (data.status === 'success') {
-        showToast('✅  Reset complete — 5 default CNAPP questions loaded. Reloading…', 'success');
+        showToast('✅  Reset complete — 5 random CNAPP questions loaded. Reloading…', 'success');
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-trash-alt"></i> Reset';
         setTimeout(() => window.location.reload(), 1800);
