@@ -1,15 +1,11 @@
 {
-    # Use Caddy's built-in local CA for all certs (no Let's Encrypt, no DuckDNS required)
     local_certs
-
-    # Caddy admin API — internal health checks only
     admin 0.0.0.0:2019
 }
 
-# ── CTFd — matches ANY hostname on port 443 ───────────────────────────────────
-# Works for: https://localhost, https://IP, https://your-fqdn.com, all of them.
-# Caddy auto-issues a self-signed cert for every hostname presented.
-:443 {
+# ── CTFd — FQDN + localhost + 127.0.0.1 ──────────────────────────────────────
+# Works via: https://your-fqdn.com  https://localhost  https://127.0.0.1
+{env.FQDN}, localhost, 127.0.0.1 {
 
     tls internal
 
@@ -25,11 +21,11 @@
     respond /caddy-health 200
 
     reverse_proxy ctfd:8000 {
-        header_up X-Real-IP          {remote_host}
-        header_up X-Forwarded-For    {remote_host}
-        header_up X-Forwarded-Proto  https
-        header_up Connection         {http.request.header.Connection}
-        header_up Upgrade            {http.request.header.Upgrade}
+        header_up X-Real-IP         {remote_host}
+        header_up X-Forwarded-For   {remote_host}
+        header_up X-Forwarded-Proto https
+        header_up Connection        {http.request.header.Connection}
+        header_up Upgrade           {http.request.header.Upgrade}
     }
 }
 
@@ -38,8 +34,8 @@
     redir https://{host}{uri} permanent
 }
 
-# ── Trigger service — port 5555 ───────────────────────────────────────────────
-:5555 {
+# ── Trigger — port 5555 ───────────────────────────────────────────────────────
+{env.FQDN}:5555, localhost:5555, 127.0.0.1:5555 {
 
     tls internal
 

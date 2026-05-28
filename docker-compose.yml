@@ -188,8 +188,10 @@ services:
     restart: unless-stopped
     ports:
       - "80:80"
-      - "443:443"    # CTFd HTTPS (any hostname)
-      - "5555:5555"  # Trigger HTTPS (any hostname)
+      - "443:443"    # CTFd HTTPS
+      - "5555:5555"  # Trigger HTTPS
+    environment:
+      FQDN: ${FQDN:-localhost}
     volumes:
       # NEVER delete caddy_data — Let's Encrypt rate-limits to 5 certs/domain/week
       - caddy_data:/data

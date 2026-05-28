@@ -463,58 +463,63 @@ def _trigger_reset(env: dict, max_wait: int = 60) -> None:
 
 
 def start(env: dict) -> None:
-    token_ok   = bool(env.get("CTFD_ADMIN_TOKEN"))
-    fqdn       = env.get("FQDN") or "localhost"
-    first_boot = not token_ok   # first boot = no token yet
+    """Full stack start — handles everything from first install to ready state."""
+    fqdn = env.get("FQDN") or "localhost"
 
-    # ── First-boot: no token yet ───────────────────────────────────────────────
+    # ── Step 1: Bring up DB + cache + CTFd ────────────────────────────────────
+    print(f"\n{CYAN}[1/5] Starting database, cache, and CTFd…{RESET}")
+    ok = run(["docker", "compose", "up", "-d", "db", "cache", "ctfd"])
+    if not ok:
+        return
+
+    # ── Step 2: Auto-configure CTFd on first boot (setup wizard + token) ──────
+    token_ok = bool(env.get("CTFD_ADMIN_TOKEN"))
     if not token_ok:
+        print(f"\n{CYAN}[2/5] First boot — running CTFd setup wizard…{RESET}")
         if not env.get("CTFD_ADMIN_PASSWORD"):
-            print(f"\n{RED}Cannot auto-configure — CTFD_ADMIN_PASSWORD is not set.{RESET}")
-            print(f"{DIM}Press s to open the setup wizard and set admin credentials.{RESET}")
-            return
-
-        ok = run(["docker", "compose", "up", "-d", "db", "cache", "ctfd"])
-        if not ok:
-            return
-
-        print(f"\n{CYAN}Auto-configuring CTFd…{RESET}")
+            import secrets, string
+            _chars = string.ascii_letters + string.digits
+            _pwd   = ''.join(secrets.choice(_chars) for _ in range(16))
+            print(f"  {YELLOW}CTFD_ADMIN_PASSWORD not set — generating random password{RESET}")
+            print(f"  {DIM}Password saved to .env (admin / <generated>){RESET}")
+            env["CTFD_ADMIN_PASSWORD"] = _pwd
+            write_env({"CTFD_ADMIN_PASSWORD": _pwd})
         token = _auto_token(env)
-
         if token:
             write_env({"CTFD_ADMIN_TOKEN": token})
             env["CTFD_ADMIN_TOKEN"] = token
             print(f"  {GREEN}✅  Admin token saved to .env{RESET}")
         else:
-            print(f"\n{YELLOW}⚠  Could not auto-generate token.{RESET}")
-            print(f"{DIM}CTFd is at http://localhost:8000 — complete the wizard manually,{RESET}")
-            print(f"{DIM}then Admin Panel → Settings → Tokens → Generate, press s to paste it.{RESET}")
-            return
+            print(f"  {YELLOW}⚠  Could not auto-generate token — will retry via trigger startup.{RESET}")
+    else:
+        print(f"\n{DIM}[2/5] Token present — skipping wizard.{RESET}")
 
-    # ── Full stack ─────────────────────────────────────────────────────────────
-    ok = run(["docker", "compose", "up", "-d", "db", "cache", "ctfd", "trigger", "caddy"])
+    # ── Step 3: Start trigger + Caddy ─────────────────────────────────────────
+    print(f"\n{CYAN}[3/5] Starting trigger service and Caddy…{RESET}")
+    ok = run(["docker", "compose", "up", "-d", "trigger", "caddy"])
     if not ok:
         return
 
-    # ── Always restore Fortinet theme + home page ─────────────────────────────
-    # Run bridge-static --theme-only on every start so the dark theme and
-    # custom home page are always present — even after a fresh pull or rebuild.
-    # This is fast (~10 s): only 2 API calls, no challenge loading.
-    token = env.get("CTFD_ADMIN_TOKEN", "")
-    print(f"\n{CYAN}Applying Fortinet theme + home page…{RESET}")
-    print(f"{DIM}(bridge-static --theme-only){RESET}")
+    # ── Step 4: Apply Fortinet theme + home page ──────────────────────────────
+    print(f"\n{CYAN}[4/5] Applying Fortinet theme + home page…{RESET}")
     run(["docker", "compose", "run", "--rm", "bridge-static", "--theme-only"])
 
-    # ── Load 5 random default challenges if database is empty ────────────────
-    n_challenges = _ctfd_challenge_count(token)
-    if n_challenges == 0:
-        print(f"\n{YELLOW}No challenges found — loading 5 random default CNAPP questions via trigger…{RESET}")
-        # Give the trigger a moment to be fully ready, then call its reset endpoint
+    # ── Step 5: Load default challenges if DB is empty ────────────────────────
+    print(f"\n{CYAN}[5/5] Checking challenges…{RESET}")
+    token = env.get("CTFD_ADMIN_TOKEN", "")
+    n = _ctfd_challenge_count(token)
+    if n == 0:
+        print(f"  {YELLOW}No challenges — loading 5 random CNAPP defaults…{RESET}")
         _trigger_reset(env)
     else:
-        print(f"{GREEN}✅  Fortinet theme + home page applied ({n_challenges} challenge(s) already loaded).{RESET}")
+        print(f"  {GREEN}✅  {n} challenge(s) already loaded.{RESET}")
 
-    print(f"\n{CYAN}Open{RESET} {BOLD}https://{fqdn}{RESET}  {DIM}(self-signed cert — accept the browser warning on first visit){RESET}")
+    # ── Done ──────────────────────────────────────────────────────────────────
+    print(f"\n{GREEN}{'─'*55}{RESET}")
+    print(f"{GREEN}✅  FortiCNAPP CTF is ready!{RESET}")
+    print(f"   {BOLD}HTTPS:{RESET}  https://{fqdn}         {DIM}(accept browser cert warning){RESET}")
+    print(f"   {BOLD}HTTP: {RESET}  http://localhost:8000  {DIM}(direct, no cert needed){RESET}")
+    print(f"{GREEN}{'─'*55}{RESET}")
 
 
 # ── Entry ──────────────────────────────────────────────────────────────────────
