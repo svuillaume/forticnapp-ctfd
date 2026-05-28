@@ -421,9 +421,24 @@ def run(cmd: list[str]) -> bool:
         return False
 
 
+def _ctfd_challenge_count(token: str) -> int:
+    """Return number of challenges currently in CTFd (0 on error)."""
+    try:
+        req = urllib.request.Request(
+            f"{CTFD_LOCAL}/api/v1/challenges?view=admin",
+            headers={"Authorization": f"Token {token}"},
+        )
+        r    = urllib.request.urlopen(req, timeout=5)
+        data = json.loads(r.read()).get("data", [])
+        return len(data)
+    except Exception:
+        return 0
+
+
 def start(env: dict) -> None:
-    token_ok = bool(env.get("CTFD_ADMIN_TOKEN"))
-    fqdn     = env.get("FQDN") or "localhost"
+    token_ok   = bool(env.get("CTFD_ADMIN_TOKEN"))
+    fqdn       = env.get("FQDN") or "localhost"
+    first_boot = not token_ok   # first boot = no token yet
 
     # ── First-boot: no token yet ───────────────────────────────────────────────
     if not token_ok:
@@ -453,6 +468,25 @@ def start(env: dict) -> None:
     ok = run(["docker", "compose", "up", "-d", "db", "cache", "ctfd", "trigger", "caddy"])
     if not ok:
         return
+
+    # ── Restore theme + home page + challenges if needed ──────────────────────
+    # On first boot OR when the database was wiped (0 challenges), automatically
+    # run bridge-static to push:
+    #   • Fortinet dark theme CSS → theme_header config
+    #   • Custom home page (CTF Lab / Live CTF mode cards) → CTFd Pages
+    #   • 21 static CTF Lab challenges
+    token = env.get("CTFD_ADMIN_TOKEN", "")
+    n_challenges = _ctfd_challenge_count(token)
+
+    if first_boot or n_challenges == 0:
+        if first_boot:
+            print(f"\n{CYAN}First start — applying Fortinet theme and home page…{RESET}")
+        else:
+            print(f"\n{YELLOW}⚠  No challenges found — restoring theme, home page, and CTF Lab challenges…{RESET}")
+        print(f"{DIM}(running bridge-static — this takes ~30 s){RESET}\n")
+        run(["docker", "compose", "run", "--rm", "bridge-static"])
+        print(f"\n{GREEN}✅  Theme, home page, and CTF Lab challenges loaded.{RESET}")
+        print(f"{DIM}Open the home page to switch to Live CTF mode or reset at any time.{RESET}")
 
     print(f"\n{CYAN}Open{RESET} {BOLD}https://{fqdn}{RESET}  {DIM}(self-signed cert — accept the browser warning on first visit){RESET}")
 
