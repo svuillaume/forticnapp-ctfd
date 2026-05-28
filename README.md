@@ -35,13 +35,13 @@ and map compliance violations — then submit `FLAG{...}` answers on a live lead
 ```
 Browser
   │
-  │  https://your-domain             (CTFd UI, port 443)
-  │  https://your-domain:5555       (Trigger API)
+  │  https://localhost        (CTFd UI — port 443, self-signed cert)
+  │  https://localhost:5555   (Trigger API)
   │
   ▼
 ┌──────────────────────────────────────────────────────────┐
-│  Caddy (HTTPS reverse proxy)                             │
-│  Let's Encrypt cert via DuckDNS DNS-01                   │
+│  Caddy  (HTTPS reverse proxy — tls internal)             │
+│  Self-signed cert via Caddy's built-in local CA          │
 └────────────┬──────────────────────────────┬─────────────┘
              │                              │
       :8000  ▼                       :5555  ▼
@@ -59,11 +59,6 @@ Browser
                                │  bridge (dynamic)           │
                                │  FortiCNAPP API → CTFd API  │
                                └─────────────────────────────┘
-                                            │
-                                ┌───────────┴──────────┐
-                                │  FortiCNAPP / Lacework│
-                                │  (live tenant — opt.) │
-                                └──────────────────────┘
 ```
 
 ---
@@ -71,15 +66,17 @@ Browser
 ## Prerequisites
 
 - **Docker** and **Docker Compose v2** (`docker compose version`)
-- **Ports 80, 443, 5555** available (80 for HTTP→HTTPS redirect, 443 for CTFd, 5555 for Trigger)
-- A **DuckDNS token** and subdomain (for HTTPS — free at [duckdns.org](https://www.duckdns.org))
-- A **FortiCNAPP API key** (dynamic mode only)
+- **Python 3.10+** (to run `ctl.py`)
+- **Ports 443 and 5555** available on the host
+
+> No domain name, no DNS token, no certificate authority needed.
+> Caddy issues a self-signed cert automatically on first start.
 
 ---
 
 ## Quick Start
 
-Everything is driven by a single control script — no manual file editing needed.
+Everything is driven by a single control script.
 
 ### 1 — Run the control script
 
@@ -93,42 +90,88 @@ The wizard walks through **3 sections**:
 
 | Section | What it asks |
 |---|---|
-| **CTFd internal** | DB passwords (default `root`/`root`), CTFd admin token |
-| **HTTPS** | Your FQDN, DuckDNS token (port 443 is fixed) |
+| **CTFd internal** | DB passwords (default `root`/`root`), CTFd admin credentials |
+| **HTTPS** | Hostname or IP (blank = `localhost`) |
 | **FortiCNAPP API** | Account, Key ID, Secret — for Live CTF mode only |
 
-> The CTFd admin token does not exist yet at this point — leave it blank and fill it in after step 3.  
-> Press **`s`** at any time to re-open the wizard and update values.
+> Admin credentials (username, email, password) are used by `ctl.py` to complete the
+> CTFd first-run wizard automatically — no manual browser step needed.
 
-### 2 — First boot
+### 2 — Start
 
-Run `ctl.py` → option **1** (START). CTFd starts without Caddy so you can complete the setup wizard.
+Press **`1`** (START). The script:
 
-Open **http://localhost:8000** and complete the setup wizard:
-1. Enter your event name
-2. Create an admin user — remember these credentials
-3. Choose **Users** or **Teams** mode
-4. Click **Finish Setup**
+1. Starts `db`, `cache`, `ctfd`
+2. Waits for CTFd to be healthy
+3. Automatically completes the CTFd setup wizard
+4. Generates and saves an admin API token to `.env`
+5. Starts `trigger` and `caddy`
 
-> `localhost:8000` is the direct CTFd port, bound to loopback only. It is used only for this one-time setup step — all public traffic goes through Caddy on port 443.
+Open **`https://localhost`** — accept the browser security warning (self-signed cert, one-time click).
 
-### 3 — Generate the admin API token
+### 3 — Load challenges
 
-**Admin Panel → Settings → Tokens → Generate**
+On the CTFd home page, click **CTF Lab** or **Live CTF** to load challenges.
 
-Copy the token (`ctfd_...`), then press **`s`** in the control script and paste it into **CTFd admin API token**.
+Or from the command line:
 
-### 4 — Start (HTTPS)
+```bash
+docker compose run --rm bridge-static   # CTF Lab (21 static challenges)
+docker compose run --rm bridge          # Live CTF (requires FortiCNAPP credentials)
+```
 
-Choose **option 1** (START) again. Once FQDN, DUCKDNS_TOKEN, and CTFD_ADMIN_TOKEN are all set, the script starts the full stack including Caddy.
+> `bridge-static` loads both the **home page** and the **challenges**.
+> Run it again any time to restore them after a DESTROY.
 
-- Caddy obtains a Let's Encrypt cert on first start (~30 s)
-- Port 80 automatically redirects HTTP → HTTPS
-- CTFd is served at `https://your-domain`
+---
 
-### 5 — Load challenges
+## Control Panel (`ctl.py`)
 
-Open the CTFd home page — use the **CTF Lab** or **Live CTF** cards to load challenges, then click **Start Challenges**.
+```
+╔══════════════════════════════════════════╗
+║       FortiCNAPP CTF — Control Panel    ║
+╚══════════════════════════════════════════╝
+
+  STATUS
+  ● CTFd   ● DB   ● Cache   ● Trigger   ● Caddy
+
+  s  Setup / edit .env
+
+  1  START    → https://localhost  (self-signed cert)
+  2  STOP     (containers stopped, data kept)
+  3  RESTART
+  4  DESTROY  ⚠️  removes containers + volumes — all data lost
+
+  5  Logs (CTFd)
+  6  Logs (Trigger)
+  q  Quit
+```
+
+| Option | What it does |
+|---|---|
+| `s` | Re-open the setup wizard to edit any `.env` value |
+| `1` | Start full stack; auto-completes CTFd setup on first run |
+| `2` | Stop all containers (data kept in Docker volumes) |
+| `3` | Stop then start |
+| `4` | Stop → remove all containers and volumes → clear admin token |
+| `5` / `6` | Tail CTFd / Trigger logs |
+
+---
+
+## HTTPS
+
+Caddy uses `tls internal` — its built-in local certificate authority issues a self-signed cert instantly at startup. No domain name, DNS token, or internet access required.
+
+**On first visit** the browser shows a security warning. Click **Advanced → Accept** (Chrome/Edge) or **Accept the Risk** (Firefox). This is a one-time step per browser.
+
+To use a custom hostname or IP (e.g. for participants on the same network):
+
+```dotenv
+# .env
+FQDN=192.168.1.100
+```
+
+Caddy will issue a self-signed cert for that address. Participants will also need to accept the browser warning once.
 
 ---
 
@@ -155,17 +198,15 @@ Pulls real findings from your FortiCNAPP tenant and auto-generates challenges.
 
 **FortiCNAPP Console → Settings → API Keys → Create New**
 
-Download the JSON file — it contains `keyId`, `secret`, and `account`.
-
-Add to `.env`:
+Download the JSON file — it contains `keyId`, `secret`, and `account`. Enter them when the wizard asks (section 3), or add directly to `.env`:
 
 ```dotenv
-FORTICNAPP_ACCOUNT=acme-prod          # subdomain: acme-prod.lacework.net → acme-prod
-FORTICNAPP_SUBACCOUNT=                # leave blank unless using sub-accounts
+FORTICNAPP_ACCOUNT=acme-prod
+FORTICNAPP_SUBACCOUNT=
 FORTICNAPP_API_KEY_ID=ACME_1234...
 FORTICNAPP_API_SECRET=_your_secret
-LOOKBACK_HOURS=72                     # how far back to pull alerts (72h default)
-MAX_CHALLENGES_PER_CATEGORY=5         # cap per category
+LOOKBACK_HOURS=72
+MAX_CHALLENGES_PER_CATEGORY=5
 ```
 
 | Category | FortiCNAPP API endpoint |
@@ -183,91 +224,34 @@ MOCK_MODE=true
 
 ### Sanitization
 
-When `SANITIZE=true` (default — **always on for customer demos**), the bridge scrubs:
+When `SANITIZE=true` (default), the bridge scrubs all customer-identifiable data:
 
-- AWS 12-digit account IDs and ARNs
-- Azure subscription UUIDs
-- GCP project identifiers
-- S3 bucket names
-- Public IPv4 addresses
-- Email addresses and public DNS hostnames
+- AWS account IDs and ARNs · Azure subscription UUIDs · GCP project IDs
+- S3 bucket names · Public IPv4 addresses · Email addresses · Public hostnames
 
-The mapping is stable per run — the same real value always produces the same anonymized value, so challenge descriptions stay internally consistent.
-
----
-
-## HTTPS Setup
-
-Uses [Caddy](https://caddyserver.com/) with a custom [DuckDNS](https://www.duckdns.org) DNS-01 plugin.
-The cert is issued automatically — **port 80 does not need to be open to the internet.**
-
-### 1 — Get a DuckDNS subdomain
-
-1. Log in at [duckdns.org](https://www.duckdns.org)
-2. Create a subdomain (e.g. `samvblogs`)
-3. Set its **A record** to your host's public IP
-4. Copy your **token** from the top of the page
-
-### 2 — Configure
-
-```dotenv
-# In .env
-DUCKDNS_TOKEN=your-token-here
-```
-
-Update `caddy/Caddyfile` if you are using a different domain:
-
-```
-samvblogs.duckdns.org:443 {     # ← change this
-    tls { dns duckdns {env.DUCKDNS_TOKEN} }
-    reverse_proxy ctfd:8000
-}
-samvblogs.duckdns.org:5555 {    # ← and this
-    tls { dns duckdns {env.DUCKDNS_TOKEN} }
-    reverse_proxy trigger:5555
-}
-```
-
-### 3 — Start
-
-```bash
-docker compose up -d db cache ctfd trigger caddy
-```
-
-Caddy fetches the certificate on first start (~30 seconds), then renews it automatically.
-
-> ⚠️ **Never delete the `caddy_data` Docker volume** — Let's Encrypt rate-limits to 5 certs per domain per week.
+The mapping is stable per run — the same real value always produces the same anonymized value, keeping challenge descriptions internally consistent.
 
 ---
 
 ## Event Workflow
 
-### Before the event (presenter setup, ~5 min)
+### Before the event (~5 min)
 
 ```bash
-# 1. First boot (no Caddy) — CTFd setup wizard only
-docker compose up -d db cache ctfd
-#    Open http://localhost:8000 → create admin user, choose Users/Teams mode, Finish Setup
+# 1. Start everything (auto-configures CTFd on first run)
+python ctl.py  →  press 1
 
-# 2. Generate admin token: Admin Panel → Settings → Tokens → Generate
-#    → paste into .env as CTFD_ADMIN_TOKEN=ctfd_...
-#    → docker compose restart trigger
+# 2. Load challenges
+docker compose run --rm bridge-static          # CTF Lab
+docker compose run --rm bridge                 # Live CTF
 
-# 3. Start full stack with HTTPS
-docker compose up -d db cache ctfd trigger caddy
-#    Port 80 redirects to https://your-domain automatically
-
-# 4. Load challenges — either via home page cards, or:
-docker compose run --rm bridge-static   # CTF Lab
-docker compose run --rm bridge          # Live CTF (needs .env credentials)
-
-# 5. Make challenges visible
+# 3. Make challenges visible to participants
 #    Admin Panel → Configs → Challenge Visibility → Public
 ```
 
-### During the event (participants)
+### During the event
 
-1. **Register** at the CTFd URL
+1. **Register** at `https://localhost` (or your configured FQDN)
 2. **Read** the challenge scenario
 3. **Navigate** FortiCNAPP console to find the answer
 4. **Submit** `FLAG{answer}` → scored instantly
@@ -283,16 +267,22 @@ docker compose run --rm bridge          # Live CTF (needs .env credentials)
 | 32–42 min | 🟡 Cloud Compliance | CSPM + audit story |
 | 42–45 min | Debrief + leaderboard | Walk one finding live in console |
 
+### After the event — full reset
+
+```
+python ctl.py  →  press 4  →  type YES
+```
+
+Stops all containers, wipes all volumes (scores, users, challenges), clears the admin token. Press `1` to rebuild from scratch.
+
 ---
 
 ## Adding Custom Challenges
 
-Edit or create YAML files in `static_ctf/ctf/<category>/challenges.yml`.
-Reload with:
+Edit or create YAML files in `static_ctf/ctf/<category>/challenges.yml`, then reload:
 
 ```bash
 docker compose run --rm bridge-static
-# or click "Load Lab Challenges" on the home page
 ```
 
 **Minimal challenge template:**
@@ -323,52 +313,48 @@ challenges:
 
 ```
 forticnapp-ctf/
-├── docker-compose.yml               # full stack definition
+├── ctl.py                           # ← single entry point — run this
+├── docker-compose.yml
 ├── .env.example                     # copy to .env — never commit .env
 ├── README.md
 │
 ├── theme/                           # Fortinet dark theme
-│   ├── fortinet.css                 # main theme (injected into CTFd)
-│   ├── fortinet-admin.css           # admin panel overrides
-│   ├── admin_base.html              # admin panel base template
-│   └── SOC.png                      # hero image
+│   ├── fortinet.css
+│   ├── fortinet-admin.css
+│   ├── admin_base.html
+│   └── SOC.png
 │
 ├── static_ctf/                      # ── CTF Lab (static mode) ─────────────
 │   ├── Dockerfile
 │   ├── build.py                     # entrypoint: reads env → builds CTF
 │   ├── ctfbuilder.py                # idempotent challenge push (create + update)
 │   ├── ctfd.py                      # CTFd REST API wrapper
-│   ├── home.html                    # custom CTFd home page (mode selector cards)
-│   ├── fortinet.css                 # theme copy for static container
+│   ├── home.html                    # custom home page (CTF Lab / Live CTF cards)
 │   ├── requirements.txt
 │   └── ctf/
-│       ├── config.yml               # CTFd event settings
-│       ├── 1_Alert Triage/
-│       │   └── challenges.yml
-│       ├── 2_Host Security/
-│       │   └── challenges.yml
-│       ├── 3_Container Security/
-│       │   └── challenges.yml
-│       └── 4_Cloud Compliance/
-│           └── challenges.yml
+│       ├── config.yml
+│       ├── 1_Alert Triage/challenges.yml
+│       ├── 2_Host Security/challenges.yml
+│       ├── 3_Container Security/challenges.yml
+│       └── 4_Cloud Compliance/challenges.yml
 │
 ├── forticnapp_ctf_api/              # ── Live CTF (dynamic mode) ───────────
 │   ├── Dockerfile
-│   ├── requirements.txt
 │   ├── bridge.py                    # orchestrator: pull → sanitize → push
 │   ├── forticnapp_client.py         # FortiCNAPP/Lacework v2 API client
 │   ├── ctfd_client.py               # CTFd admin API client
-│   ├── challenges.py                # finding → Challenge object mapping
-│   └── sanitize.py                  # PII scrubber for customer-safe demos
+│   ├── challenges.py                # finding → Challenge mapping
+│   ├── sanitize.py                  # PII scrubber
+│   └── requirements.txt
 │
 ├── trigger/                         # ── Trigger service (always-on) ───────
 │   ├── Dockerfile
-│   ├── app.py                       # Flask API: /run/static /run/dynamic /reset
+│   ├── app.py                       # Flask: /run/static /run/dynamic /reset
 │   └── requirements.txt
 │
 ├── caddy/                           # ── HTTPS reverse proxy ───────────────
-│   ├── Dockerfile                   # custom Caddy build with DuckDNS plugin
-│   └── Caddyfile                    # TLS config + proxy rules
+│   ├── Dockerfile                   # plain caddy:latest (no plugins needed)
+│   └── Caddyfile                    # tls internal — self-signed cert
 │
 └── sample_data/                     # mock data for MOCK_MODE=true
     ├── alerts.json
@@ -399,65 +385,61 @@ All flags are case-insensitive.
 ## Useful Commands
 
 ```bash
-# Start full stack (HTTPS — recommended)
-docker compose up -d db cache ctfd trigger caddy
+# Start everything
+python ctl.py
 
-# Start without Caddy (CTFd setup wizard only, localhost:8000)
-docker compose up -d db cache ctfd
-
-# Stop Caddy only
-docker compose stop caddy
-
-# Stop everything (keep data)
-docker compose down
-
-# Full reset — wipes database and all scores
-docker compose down -v
+# Load / reload challenges (also restores the home page)
+docker compose run --rm bridge-static   # CTF Lab
+docker compose run --rm bridge          # Live CTF
 
 # Watch logs
 docker compose logs -f ctfd
+docker compose logs -f caddy
 docker compose logs -f trigger
 
 # Check container health
 docker compose ps
 
-# Load challenges manually (CLI)
-docker compose run --rm bridge-static   # CTF Lab
-docker compose run --rm bridge          # Live CTF
-
 # Rebuild an image after code changes
-docker compose build trigger
-docker compose up -d trigger
+docker compose build <service>
+docker compose up -d <service>
 ```
 
 ---
 
 ## Troubleshooting
 
+**Browser shows security warning on HTTPS**
+Expected — Caddy uses a self-signed cert. Click **Advanced → Accept** once per browser.
+
+**Home page is blank / CTF Lab card missing**
+Run `docker compose run --rm bridge-static` to restore the home page and all challenges.
+
 **CTFd keeps restarting**
-Add `SECRET_KEY=any-strong-random-string` to `.env`.
+Check `SECRET_KEY` is set in `.env` (auto-generated by `ctl.py`).
 
 **Admin token rejected (401)**
-Regenerate: Admin Panel → Settings → Tokens. Update `CTFD_ADMIN_TOKEN` in `.env`, then `docker compose restart trigger`.
+Run `python ctl.py` → press `s` → paste a fresh token from **Admin Panel → Settings → Tokens**.
 
 **Home page cards show "already running"**
-A previous build is still in progress. Check `GET http://localhost:5555/status/static` or wait a minute.
+A previous build is still in progress. Wait ~1 minute or check `docker compose logs trigger`.
 
 **0 challenges generated (Live CTF)**
-1. Check credentials: `FORTICNAPP_ACCOUNT`, `FORTICNAPP_API_KEY_ID`, `FORTICNAPP_API_SECRET`
-2. Widen the search window: `LOOKBACK_HOURS=720`
+1. Check `.env`: `FORTICNAPP_ACCOUNT`, `FORTICNAPP_API_KEY_ID`, `FORTICNAPP_API_SECRET`
+2. Widen the window: `LOOKBACK_HOURS=720`
 3. Test offline: `MOCK_MODE=true`
 
 **Container Security returns 0 (dynamic)**
-Agentless Workload Scanning must be enabled on the tenant. Set `LOOKBACK_HOURS=720` or `MOCK_MODE=true`.
-
-**HTTPS cert not issuing**
-- Verify DNS A record points to your host's public IP
-- Check `DUCKDNS_TOKEN` is set in `.env`
-- View Caddy logs: `docker compose logs -f caddy`
+Agentless Workload Scanning must be enabled on the tenant. Use `LOOKBACK_HOURS=720` or `MOCK_MODE=true`.
 
 **Challenges not visible to participants**
 Admin Panel → Configs → Challenge Visibility → set to **Public**.
+
+**Docker permission denied**
+`ctl.py` offers to fix this automatically, or run manually:
+```bash
+sudo usermod -aG docker $USER && newgrp docker
+```
 
 ---
 
