@@ -4,10 +4,17 @@ FortiCNAPP CTF — control script
 Run:  python ctl.py
 """
 
+import http.cookiejar
+import json
 import os
+import re
 import secrets
 import subprocess
 import sys
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
 from pathlib import Path
 
 RED    = "\033[91m"
@@ -113,6 +120,158 @@ def prompt(label: str, default: str = "", secret: bool = False, required: bool =
         print(f"  {RED}Required.{RESET}")
 
 
+# ── CTFd auto-token ────────────────────────────────────────────────────────────
+# After CTFd starts for the first time we:
+#   1. Wait until the web UI is up
+#   2. POST to /setup to complete the first-run wizard programmatically
+#   3. Log in via /login to get a session cookie
+#   4. POST to /api/v1/tokens to create an admin token
+#   5. Write CTFD_ADMIN_TOKEN to .env
+#
+# The admin credentials (CTFD_ADMIN_NAME / EMAIL / PASSWORD) are collected in the
+# setup wizard and stored in .env — they are never transmitted outside localhost.
+
+CTFD_LOCAL = "http://localhost:8000"
+
+
+def _extract_nonce(text: str) -> str:
+    """Pull the CTFd CSRF nonce out of a page or JSON response."""
+    for pat in (
+        r"csrfNonce['\"]:\s*['\"]([a-f0-9]+)['\"]",
+        r'name="nonce"\s+value="([^"]+)"',
+        r"nonce['\"]:\s*['\"]([a-f0-9]+)['\"]",
+    ):
+        m = re.search(pat, text, re.IGNORECASE)
+        if m:
+            return m.group(1)
+    return ""
+
+
+def _auto_token(env: dict) -> str | None:
+    """
+    Programmatically complete the CTFd first-run wizard and return a fresh
+    admin token string, or None if anything fails.
+    """
+    admin_name  = env.get("CTFD_ADMIN_NAME",  "admin")
+    admin_email = env.get("CTFD_ADMIN_EMAIL", "admin@ctf.local")
+    admin_pass  = env.get("CTFD_ADMIN_PASSWORD", "")
+    ctf_name    = env.get("CTF_NAME", "FortiCNAPP CTF")
+
+    if not admin_pass:
+        return None
+
+    jar    = http.cookiejar.CookieJar()
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
+    opener.addheaders = [("User-Agent", "forticnapp-ctl/1.0")]
+
+    # ── 1. Wait for CTFd ──────────────────────────────────────────────────────
+    print(f"  {DIM}Waiting for CTFd to be ready", end="", flush=True)
+    deadline = time.time() + 120
+    up = False
+    while time.time() < deadline:
+        try:
+            r = opener.open(f"{CTFD_LOCAL}/", timeout=3)
+            if r.status < 500:
+                up = True
+                break
+        except urllib.error.HTTPError as e:
+            if e.code < 500:
+                up = True
+                break
+        except Exception:
+            pass
+        print(".", end="", flush=True)
+        time.sleep(3)
+    print()
+
+    if not up:
+        print(f"  {RED}CTFd did not start in time.{RESET}")
+        return None
+
+    # ── 2. Complete setup wizard (only on first run) ───────────────────────────
+    try:
+        r     = opener.open(f"{CTFD_LOCAL}/setup", timeout=10)
+        body  = r.read().decode(errors="replace")
+        nonce = _extract_nonce(body)
+        if nonce:
+            print(f"  {DIM}Completing CTFd setup wizard…{RESET}")
+            data = urllib.parse.urlencode({
+                "nonce":     nonce,
+                "ctf_name":  ctf_name,
+                "name":      admin_name,
+                "email":     admin_email,
+                "password":  admin_pass,
+                "user_mode": "users",
+            }).encode()
+            req = urllib.request.Request(
+                f"{CTFD_LOCAL}/setup", data=data,
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+            try:
+                opener.open(req, timeout=15)
+            except Exception:
+                pass  # redirect after setup is normal
+    except Exception:
+        pass  # /setup redirects away if already set up — that's fine
+
+    # ── 3. Log in ─────────────────────────────────────────────────────────────
+    print(f"  {DIM}Logging in as {admin_name}…{RESET}")
+    try:
+        r     = opener.open(f"{CTFD_LOCAL}/login", timeout=10)
+        body  = r.read().decode(errors="replace")
+        nonce = _extract_nonce(body)
+    except Exception as exc:
+        print(f"  {RED}Login page unavailable:{RESET} {exc}")
+        return None
+
+    try:
+        data = urllib.parse.urlencode({
+            "nonce":    nonce,
+            "name":     admin_name,
+            "password": admin_pass,
+        }).encode()
+        req = urllib.request.Request(
+            f"{CTFD_LOCAL}/login", data=data,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+        opener.open(req, timeout=10)
+    except Exception:
+        pass  # redirect after login is normal
+
+    # ── 4. Fetch CSRF nonce for the token endpoint ────────────────────────────
+    csrf = ""
+    try:
+        r    = opener.open(f"{CTFD_LOCAL}/api/v1/tokens", timeout=10)
+        body = r.read().decode(errors="replace")
+        resp = json.loads(body)
+        csrf = resp.get("data", {}).get("csrfNonce", "") or _extract_nonce(body)
+    except Exception:
+        pass
+
+    if not csrf:
+        try:
+            r    = opener.open(f"{CTFD_LOCAL}/settings", timeout=10)
+            body = r.read().decode(errors="replace")
+            csrf = _extract_nonce(body)
+        except Exception:
+            pass
+
+    # ── 5. Create token ───────────────────────────────────────────────────────
+    print(f"  {DIM}Generating admin token…{RESET}")
+    try:
+        payload = json.dumps({"expiration": None}).encode()
+        req = urllib.request.Request(
+            f"{CTFD_LOCAL}/api/v1/tokens", data=payload,
+            headers={"Content-Type": "application/json", "CSRF-Token": csrf},
+        )
+        r    = opener.open(req, timeout=10)
+        resp = json.loads(r.read())
+        return resp.get("data", {}).get("value")
+    except Exception as exc:
+        print(f"  {RED}Token generation failed:{RESET} {exc}")
+        return None
+
+
 # ── Setup wizard ───────────────────────────────────────────────────────────────
 
 def setup_wizard(env: dict) -> dict:
@@ -141,10 +300,21 @@ def setup_wizard(env: dict) -> dict:
         "MariaDB CTFd password  (app db user, internal only)",
         default=env.get("MYSQL_PASSWORD") or "root", secret=True)
 
-    print(f"\n  {DIM}CTFd admin API token — generate this AFTER completing the CTFd setup wizard:{RESET}")
-    print(f"  {DIM}  CTFd → Admin Panel → Settings → Tokens → Generate{RESET}")
+    print(f"\n  {DIM}CTFd admin account — used to complete the first-run wizard automatically{RESET}")
+    print(f"  {DIM}and to generate the admin API token (token is saved to .env on first start){RESET}")
+    changes["CTFD_ADMIN_NAME"] = prompt(
+        "CTFd admin username",
+        default=env.get("CTFD_ADMIN_NAME") or "admin")
+    changes["CTFD_ADMIN_EMAIL"] = prompt(
+        "CTFd admin email",
+        default=env.get("CTFD_ADMIN_EMAIL") or "admin@ctf.local")
+    changes["CTFD_ADMIN_PASSWORD"] = prompt(
+        "CTFd admin password",
+        default=env.get("CTFD_ADMIN_PASSWORD") or "admin", secret=True, required=True)
+
+    print(f"\n  {DIM}CTFd admin API token — leave blank; auto-filled on first start{RESET}")
     changes["CTFD_ADMIN_TOKEN"] = prompt(
-        "CTFd admin API token   (starts with ctfd_...)",
+        "CTFd admin API token   (leave blank to auto-generate)",
         default=env.get("CTFD_ADMIN_TOKEN", ""), secret=True)
 
     # ── Section 2: HTTPS ───────────────────────────────────────────────────────
@@ -324,17 +494,46 @@ def start(env: dict) -> None:
     token_ok   = bool(env.get("CTFD_ADMIN_TOKEN"))
 
     cert_found = has_cert(fqdn) if fqdn else False
-    ready      = bool(fqdn and token_ok and (cert_found or env.get("DUCKDNS_TOKEN")))
+    https_ready = bool(fqdn and token_ok and (cert_found or env.get("DUCKDNS_TOKEN")))
 
-    if not ready:
-        if not token_ok:
-            print(f"\n{RED}Cannot start — CTFD_ADMIN_TOKEN is missing.{RESET}")
-            print(f"{DIM}Press s to open the setup wizard and paste your admin token.{RESET}")
+    # ── First-boot path: token not yet set ────────────────────────────────────
+    # Start db + cache + ctfd, auto-complete the CTFd setup wizard, generate
+    # an admin token, save it to .env, then launch the full stack.
+    if not token_ok:
+        if not env.get("CTFD_ADMIN_PASSWORD"):
+            print(f"\n{RED}Cannot auto-configure — CTFD_ADMIN_PASSWORD is not set.{RESET}")
+            print(f"{DIM}Press s to open the setup wizard and set admin credentials.{RESET}")
+            return
+
+        ok = run(["docker", "compose", "up", "-d", "db", "cache", "ctfd"])
+        if not ok:
+            return
+
+        print(f"\n{CYAN}Auto-configuring CTFd…{RESET}")
+        token = _auto_token(env)
+
+        if token:
+            write_env({"CTFD_ADMIN_TOKEN": token})
+            env["CTFD_ADMIN_TOKEN"] = token
+            print(f"  {GREEN}✅  Admin token saved to .env{RESET}")
+            # Re-evaluate readiness now that we have a token
+            token_ok   = True
+            https_ready = bool(fqdn and (cert_found or env.get("DUCKDNS_TOKEN")))
         else:
-            print(f"\n{RED}Cannot start — FQDN or DUCKDNS_TOKEN is missing.{RESET}")
-            print(f"{DIM}Press s to open the setup wizard and configure HTTPS.{RESET}")
+            print(f"\n{YELLOW}⚠  Could not auto-generate token.{RESET}")
+            print(f"{DIM}CTFd is running at http://localhost:8000{RESET}")
+            print(f"{DIM}1. Complete the setup wizard manually{RESET}")
+            print(f"{DIM}2. Admin Panel → Settings → Tokens → Generate{RESET}")
+            print(f"{DIM}3. Press s here → paste token → press 1 to start full stack{RESET}")
+            return
+
+    # ── HTTPS not configured ───────────────────────────────────────────────────
+    if not https_ready:
+        print(f"\n{RED}Cannot start — FQDN or DUCKDNS_TOKEN is missing.{RESET}")
+        print(f"{DIM}Press s to open the setup wizard and configure HTTPS.{RESET}")
         return
 
+    # ── Full stack ─────────────────────────────────────────────────────────────
     ok = run(["docker", "compose", "up", "-d", "db", "cache", "ctfd", "trigger", "caddy"])
     if not ok:
         return   # Docker unavailable — error already printed by run()
