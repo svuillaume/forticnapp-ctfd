@@ -1,0 +1,450 @@
+<!-- Knowledge CNAPP Game — standalone CTFd page at /game -->
+<style>
+.fctf-game-page {
+  max-width: 560px;
+  margin: 2rem auto 4rem;
+  font-family: Inter, system-ui, sans-serif;
+}
+/* Adapt modal container for inline page layout */
+.fctf-game-page .fctf-wheel-container {
+  position: static;
+  max-width: 100%;
+  animation: none;
+}
+.fctf-gp-back {
+  font-size: 0.78rem;
+  color: #5a7490;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: 6px;
+  transition: color 0.15s, background 0.15s;
+  margin-left: 0.25rem;
+}
+.fctf-gp-back:hover { color: #e2eaf4; background: rgba(255,255,255,0.05); text-decoration: none; }
+.fctf-gp-reset-btn {
+  font-size: 0.75rem;
+  color: #5a7490;
+  background: rgba(90,116,144,0.08);
+  border: 1px solid rgba(90,116,144,0.3);
+  border-radius: 6px;
+  padding: 0.32rem 0.65rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  transition: background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+.fctf-gp-reset-btn:hover { background: rgba(90,116,144,0.18); border-color: #94a3b8; color: #e2eaf4; }
+.fctf-gp-scoreboard-reset-btn {
+  font-size: 0.75rem;
+  color: #b91c1c;
+  background: rgba(185,28,28,0.1);
+  border: 1px solid rgba(185,28,28,0.35);
+  border-radius: 6px;
+  padding: 0.32rem 0.65rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  transition: background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+.fctf-gp-scoreboard-reset-btn:hover { background: rgba(185,28,28,0.25); border-color: #ef4444; color: #fca5a5; }
+.fctf-gp-login-note {
+  font-size: 0.72rem; color: #3a5470; text-align: center;
+  padding: 0.4rem 1rem; border-top: 1px solid #0e2235;
+}
+.fctf-game-page .fctf-wg-question-view { padding: 1.5rem 1.25rem; }
+.fctf-game-page .fctf-wg-history-view  { padding: 1.25rem; }
+</style>
+
+<div id="fctf-toast" class="fctf-toast" style="display:none"></div>
+
+<div class="fctf-game-page">
+  <div class="fctf-wheel-container">
+
+    <!-- Header bar -->
+    <div class="fctf-wg-header">
+      <div class="fctf-wg-title"><i class="fas fa-dharmachakra pr-2"></i>Knowledge CNAPP Game</div>
+      <div class="fctf-wg-score-wrap">
+        <span class="fctf-wg-score-label">Score</span>
+        <span class="fctf-wg-score" id="wg-score">0</span>
+        <span class="fctf-wg-score-label">pts</span>
+        <span class="fctf-wg-qs" id="wg-qs">· 0 answered</span>
+      </div>
+      <button class="fctf-wg-scorecard-btn" id="wg-scorecard-btn" onclick="toggleScorecard()" title="View scorecard">
+        <i class="fas fa-list-ol"></i>&nbsp;Scorecard
+      </button>
+      <button class="fctf-gp-reset-btn" onclick="resetScore()" title="Reset local score and history">
+        <i class="fas fa-undo"></i>&nbsp;Reset Score
+      </button>
+      <button class="fctf-gp-scoreboard-reset-btn" onclick="resetScoreboard()" title="Remove all game points from CTFd scoreboard">
+        <i class="fas fa-trash-alt"></i>&nbsp;Reset Scoreboard
+      </button>
+      <a href="/" class="fctf-gp-back" title="Back to home page">
+        <i class="fas fa-home"></i> Home
+      </a>
+    </div>
+
+    <!-- Wheel view -->
+    <div id="wg-wheel-view" class="fctf-wg-wheel-view">
+      <div class="fctf-wg-wheel-wrap">
+        <div class="fctf-wg-pointer"></div>
+        <canvas id="wg-canvas" width="400" height="400"></canvas>
+      </div>
+      <button class="fctf-wg-spin-btn" id="wg-spin-btn" onclick="spinWheel()">
+        <i class="fas fa-play"></i>&nbsp;SPIN
+      </button>
+      <p class="fctf-wg-hint">Spin to land on a point tier, then answer a cloud security question.</p>
+    </div>
+
+    <!-- Question view -->
+    <div id="wg-question-view" class="fctf-wg-question-view" style="display:none">
+      <div class="fctf-wg-q-meta">
+        <span class="fctf-wg-tier-badge" id="wg-tier-badge"></span>
+        <span class="fctf-wg-diff" id="wg-diff-label"></span>
+      </div>
+      <div class="fctf-wg-q-text" id="wg-q-text"></div>
+      <div class="fctf-wg-options" id="wg-options"></div>
+      <div class="fctf-wg-explain" id="wg-explain" style="display:none">
+        <i class="fas fa-lightbulb pr-1"></i><span id="wg-explain-text"></span>
+      </div>
+      <button class="fctf-wg-again-btn" id="wg-again-btn" style="display:none" onclick="spinAgain()">
+        <i class="fas fa-redo pr-2"></i>Spin Again
+      </button>
+    </div>
+
+    <!-- Login hint -->
+    <div id="wg-login-note" class="fctf-gp-login-note" style="display:none">
+      <i class="fas fa-info-circle" style="margin-right:0.3rem"></i>
+      <a href="/login" style="color:#5a8db8">Log in</a> or
+      <a href="/register" style="color:#5a8db8">register</a> to have your score counted on the CTFd scoreboard.
+    </div>
+
+    <!-- Scorecard / history view -->
+    <div id="wg-history-view" class="fctf-wg-history-view" style="display:none">
+      <div class="fctf-wg-history-top">
+        <span class="fctf-wg-history-title"><i class="fas fa-list-ol pr-1"></i>Scorecard</span>
+        <button class="fctf-wg-reset-btn" onclick="resetScore()" title="Reset score to zero">
+          <i class="fas fa-undo pr-1"></i>Reset Score
+        </button>
+        <button class="fctf-wg-back-btn" onclick="backFromScorecard()">
+          <i class="fas fa-arrow-left pr-1"></i>Back
+        </button>
+      </div>
+      <div id="wg-history-list" class="fctf-wg-history-list">
+        <p class="fctf-wg-history-empty">No questions answered yet — spin the wheel!</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="/themes/core/static/custom/wheel-questions.js"></script>
+<script>
+// ── Config ────────────────────────────────────────────────────────────────────
+const TRIGGER_URL = window.location.port === '8000'
+  ? 'http://' + window.location.hostname + ':5556'
+  : '/trigger';
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+function showToast(msg, type) {
+  const t = document.getElementById('fctf-toast');
+  t.textContent = msg;
+  t.className = 'fctf-toast fctf-toast-' + type;
+  t.style.display = 'block';
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(() => { t.style.display = 'none'; }, 5000);
+}
+
+// ── Wheel segments — 8 slices, each 45° ──────────────────────────────────────
+const WG_SEGMENTS = [
+  { pts: 50,  label: '50',  color: '#15803d', dark: '#14532d' },
+  { pts: 100, label: '100', color: '#1d4ed8', dark: '#1e3a8a' },
+  { pts: 150, label: '150', color: '#c2410c', dark: '#7c2d12' },
+  { pts: 200, label: '200', color: '#7c3aed', dark: '#4c1d95' },
+  { pts: 250, label: '250', color: '#b91c1c', dark: '#7f1d1d' },
+  { pts: 150, label: '150', color: '#c2410c', dark: '#7c2d12' },
+  { pts: 100, label: '100', color: '#1d4ed8', dark: '#1e3a8a' },
+  { pts: 50,  label: '50',  color: '#15803d', dark: '#14532d' },
+];
+
+const WG_DIFF = { 50: 'Easy', 100: 'Medium', 150: 'Hard', 200: 'Expert', 250: 'Elite' };
+
+// ── CTFd scoreboard integration ───────────────────────────────────────────────
+let _meCache = undefined;   // null = not logged in, object = user data
+
+async function _getMe() {
+  if (_meCache !== undefined) return _meCache;
+  try {
+    const r = await fetch('/api/v1/users/me');
+    _meCache = r.ok ? ((await r.json()).data || null) : null;
+  } catch { _meCache = null; }
+  const note = document.getElementById('wg-login-note');
+  if (note) note.style.display = _meCache ? 'none' : 'block';
+  return _meCache;
+}
+
+async function _submitAward(pts, question) {
+  const me = await _getMe();
+  if (!me) return;
+  try {
+    await fetch(TRIGGER_URL + '/game/award', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({user_id: me.id, pts, question}),
+    });
+  } catch(e) {}
+}
+
+async function resetScoreboard() {
+  if (!confirm('Remove ALL CNAPP Game points from the CTFd scoreboard for every player?\n\nThis cannot be undone.')) return;
+  try {
+    const r = await fetch(TRIGGER_URL + '/game/reset-awards', {method: 'POST'});
+    const d = await r.json();
+    if (d.ok || d.deleted >= 0) {
+      showToast('Scoreboard cleared — ' + (d.deleted || 0) + ' award(s) removed.', 'success');
+    } else {
+      showToast('Reset failed: ' + (d.error || 'unknown error'), 'error');
+    }
+  } catch(e) {
+    showToast('Could not reach trigger service.', 'error');
+  }
+}
+
+// ── Persistence ───────────────────────────────────────────────────────────────
+const WG_KEY = 'fctf_cnapp_game';
+
+function _saveState() {
+  try {
+    localStorage.setItem(WG_KEY, JSON.stringify({
+      score: wgScore, answered: wgAnswered,
+      history: wgHistory, answeredIdxs: wgAnsweredIdxs,
+    }));
+  } catch(e) {}
+}
+
+function _loadState() {
+  try {
+    const raw = localStorage.getItem(WG_KEY);
+    if (!raw) return;
+    const s = JSON.parse(raw);
+    wgScore        = s.score        || 0;
+    wgAnswered     = s.answered     || 0;
+    wgHistory      = s.history      || [];
+    wgAnsweredIdxs = s.answeredIdxs || {};
+    document.getElementById('wg-score').textContent = wgScore;
+    document.getElementById('wg-qs').textContent    = '· ' + wgAnswered + ' answered';
+  } catch(e) {}
+}
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let wgScore         = 0;
+let wgAnswered      = 0;
+let wgSpinning      = false;
+let wgCurrentPts    = 0;
+let wgCurrentQ      = null;
+let wgAngle         = 0;
+let wgAnsweredIdxs  = {};
+let wgHistory       = [];
+let wgScorecardOpen = false;
+
+function showWheelView() {
+  document.getElementById('wg-wheel-view').style.display    = 'flex';
+  document.getElementById('wg-question-view').style.display = 'none';
+  document.getElementById('wg-history-view').style.display  = 'none';
+}
+function showQuestionView() {
+  document.getElementById('wg-wheel-view').style.display    = 'none';
+  document.getElementById('wg-question-view').style.display = 'flex';
+  document.getElementById('wg-history-view').style.display  = 'none';
+}
+
+// ── Scorecard ─────────────────────────────────────────────────────────────────
+function toggleScorecard() {
+  wgScorecardOpen = !wgScorecardOpen;
+  if (wgScorecardOpen) {
+    document.getElementById('wg-wheel-view').style.display    = 'none';
+    document.getElementById('wg-question-view').style.display = 'none';
+    document.getElementById('wg-history-view').style.display  = 'flex';
+    renderHistory();
+    document.getElementById('wg-scorecard-btn').classList.add('fctf-wg-scorecard-btn-active');
+  } else {
+    document.getElementById('wg-history-view').style.display = 'none';
+    document.getElementById('wg-wheel-view').style.display   = 'flex';
+    document.getElementById('wg-scorecard-btn').classList.remove('fctf-wg-scorecard-btn-active');
+    drawWheel(wgAngle);
+  }
+}
+function backFromScorecard() {
+  wgScorecardOpen = false;
+  document.getElementById('wg-history-view').style.display = 'none';
+  document.getElementById('wg-scorecard-btn').classList.remove('fctf-wg-scorecard-btn-active');
+  if (wgCurrentQ && document.getElementById('wg-again-btn').style.display !== 'none') {
+    document.getElementById('wg-question-view').style.display = 'flex';
+  } else {
+    document.getElementById('wg-wheel-view').style.display = 'flex';
+    drawWheel(wgAngle);
+  }
+}
+function renderHistory() {
+  const list = document.getElementById('wg-history-list');
+  if (wgHistory.length === 0) {
+    list.innerHTML = '<p class="fctf-wg-history-empty">No questions answered yet — spin the wheel!</p>';
+    return;
+  }
+  const tc = { 50:'#15803d', 100:'#1d4ed8', 150:'#c2410c', 200:'#7c3aed', 250:'#b91c1c' };
+  list.innerHTML = wgHistory.map((e, i) => `
+    <div class="fctf-wg-history-item ${e.isRight ? 'fctf-wg-hi-correct' : 'fctf-wg-hi-wrong'}">
+      <div class="fctf-wg-hi-meta">
+        <span class="fctf-wg-hi-num">#${i+1}</span>
+        <span class="fctf-wg-hi-badge" style="background:${tc[e.pts]}">${e.pts} pts</span>
+        <span class="fctf-wg-hi-result">${e.isRight ? '✓ +' + e.pts + ' pts' : '✗ 0 pts'}</span>
+      </div>
+      <div class="fctf-wg-hi-q">${e.q}</div>
+      <div class="fctf-wg-hi-answer">
+        <i class="fas fa-check-circle pr-1" style="color:#4ade80;font-size:0.75rem"></i>
+        <span><strong>Correct:</strong> ${e.correctText}</span>
+      </div>
+    </div>`).join('');
+}
+function resetScore() {
+  if (!confirm('Reset your score to zero and clear history?')) return;
+  wgScore = 0; wgAnswered = 0; wgHistory = []; wgAnsweredIdxs = {};
+  document.getElementById('wg-score').textContent = '0';
+  document.getElementById('wg-qs').textContent = '· 0 answered';
+  localStorage.removeItem(WG_KEY);
+  renderHistory();
+  showToast('Scorecard reset.', 'info');
+}
+
+// ── Canvas wheel ──────────────────────────────────────────────────────────────
+function drawWheel(rotation) {
+  const canvas = document.getElementById('wg-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height, cx = W/2, cy = H/2;
+  const R = cx - 8, segCount = WG_SEGMENTS.length, arc = (2*Math.PI)/segCount;
+  ctx.clearRect(0, 0, W, H);
+
+  ctx.save();
+  ctx.shadowBlur = 18; ctx.shadowColor = 'rgba(218,41,28,0.35)';
+  ctx.beginPath(); ctx.arc(cx, cy, R+4, 0, Math.PI*2);
+  ctx.strokeStyle = '#DA291C'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.restore();
+
+  for (let i = 0; i < segCount; i++) {
+    const s = rotation + i*arc - Math.PI/2;
+    const e = s + arc;
+    const seg = WG_SEGMENTS[i];
+    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,R,s,e); ctx.closePath();
+    ctx.fillStyle = seg.color; ctx.fill();
+    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,R,s,e); ctx.closePath();
+    ctx.strokeStyle = '#0e1929'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.save();
+    ctx.translate(cx,cy); ctx.rotate(s+arc/2);
+    ctx.textAlign = 'right'; ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 18px Inter,sans-serif'; ctx.shadowBlur = 4; ctx.shadowColor = 'rgba(0,0,0,0.6)';
+    ctx.fillText(seg.label, R-14, 6);
+    ctx.font = '9px Inter,sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.fillText('PTS', R-14, 18);
+    ctx.restore();
+  }
+
+  ctx.beginPath(); ctx.arc(cx,cy,26,0,Math.PI*2);
+  ctx.fillStyle = '#0e1929'; ctx.fill();
+  ctx.strokeStyle = '#DA291C'; ctx.lineWidth = 2.5; ctx.stroke();
+  ctx.fillStyle = '#DA291C'; ctx.font = 'bold 10px Inter,sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('SPIN', cx, cy);
+}
+
+// ── Spin animation ────────────────────────────────────────────────────────────
+function spinWheel() {
+  if (wgSpinning) return;
+  wgSpinning = true;
+  document.getElementById('wg-spin-btn').disabled = true;
+  const segCount  = WG_SEGMENTS.length, arc = (2*Math.PI)/segCount;
+  const targetSeg = Math.floor(Math.random()*segCount);
+  const extraSpins = (5+Math.floor(Math.random()*4))*2*Math.PI;
+  const jitter    = (Math.random()-0.5)*arc*0.4;
+  const targetAngle = -(targetSeg+0.5)*arc+jitter;
+  const totalDelta = extraSpins+((targetAngle-wgAngle)%(2*Math.PI)+2*Math.PI)%(2*Math.PI);
+  const startAngle = wgAngle, duration = 4500+Math.random()*800, startTime = performance.now();
+
+  function easeOut(t) { return 1-Math.pow(1-t,4); }
+  function frame(now) {
+    const t = Math.min((now-startTime)/duration, 1);
+    wgAngle = startAngle+totalDelta*easeOut(t);
+    drawWheel(wgAngle);
+    if (t < 1) { requestAnimationFrame(frame); return; }
+    wgAngle = startAngle+totalDelta;
+    drawWheel(wgAngle);
+    wgSpinning = false;
+    const norm = ((-wgAngle)%(2*Math.PI)+2*Math.PI)%(2*Math.PI);
+    wgCurrentPts = WG_SEGMENTS[Math.floor(norm/arc)%segCount].pts;
+    setTimeout(() => showQuestion(wgCurrentPts), 600);
+  }
+  requestAnimationFrame(frame);
+}
+
+// ── Question ──────────────────────────────────────────────────────────────────
+function showQuestion(pts) {
+  const pool = WG_QUESTIONS[pts];
+  if (!wgAnsweredIdxs[pts]) wgAnsweredIdxs[pts] = [];
+  let avail = pool.map((_,i)=>i).filter(i=>!wgAnsweredIdxs[pts].includes(i));
+  if (!avail.length) { wgAnsweredIdxs[pts]=[]; avail=pool.map((_,i)=>i); }
+  const idx = avail[Math.floor(Math.random()*avail.length)];
+  wgAnsweredIdxs[pts].push(idx);
+  wgCurrentQ = pool[idx];
+
+  const cols = {50:'#15803d',100:'#1d4ed8',150:'#c2410c',200:'#7c3aed',250:'#b91c1c'};
+  const badge = document.getElementById('wg-tier-badge');
+  badge.textContent = pts+' pts'; badge.style.background = cols[pts];
+  document.getElementById('wg-diff-label').textContent = WG_DIFF[pts];
+  document.getElementById('wg-q-text').textContent = wgCurrentQ.q;
+  document.getElementById('wg-explain').style.display = 'none';
+  document.getElementById('wg-again-btn').style.display = 'none';
+
+  const optsEl = document.getElementById('wg-options');
+  optsEl.innerHTML = '';
+  wgCurrentQ.o.forEach((opt,i) => {
+    const btn = document.createElement('button');
+    btn.className = 'fctf-wg-opt-btn';
+    btn.textContent = String.fromCharCode(65+i)+'.  '+opt;
+    btn.onclick = () => answerQuestion(i, pts, btn, optsEl);
+    optsEl.appendChild(btn);
+  });
+  showQuestionView();
+}
+
+function answerQuestion(chosen, pts, clickedBtn, optsEl) {
+  const correct = wgCurrentQ.a;
+  optsEl.querySelectorAll('.fctf-wg-opt-btn').forEach((b,i) => {
+    b.disabled = true;
+    if (i===correct) b.classList.add('fctf-wg-opt-correct');
+    else if (i===chosen&&chosen!==correct) b.classList.add('fctf-wg-opt-wrong');
+  });
+  const isRight = chosen===correct;
+  if (isRight) { wgScore += pts; _submitAward(pts, wgCurrentQ.q); }
+  wgAnswered++;
+  wgHistory.push({ pts, q:wgCurrentQ.q, correctText:wgCurrentQ.o[correct], isRight, earned:isRight?pts:0 });
+  document.getElementById('wg-score').textContent = wgScore;
+  document.getElementById('wg-qs').textContent = '· '+wgAnswered+' answered';
+  _saveState();
+  document.getElementById('wg-explain-text').textContent = wgCurrentQ.x;
+  document.getElementById('wg-explain').style.display = 'block';
+  document.getElementById('wg-explain').className = 'fctf-wg-explain '+(isRight?'fctf-wg-explain-ok':'fctf-wg-explain-bad');
+  document.getElementById('wg-again-btn').style.display = 'inline-flex';
+  document.getElementById('wg-spin-btn').disabled = false;
+}
+
+function spinAgain() { showWheelView(); }
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => { _loadState(); drawWheel(wgAngle); _getMe(); });
+</script>

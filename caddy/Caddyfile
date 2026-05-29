@@ -20,6 +20,16 @@
 
     respond /caddy-health 200
 
+    # Prevent browser from caching the home page — it changes on every deploy
+    @home path /
+    header @home Cache-Control "no-cache, no-store, must-revalidate"
+
+    # Trigger service — proxied through port 443 so no separate cert trust is needed
+    handle /trigger/* {
+        uri strip_prefix /trigger
+        reverse_proxy trigger:5555
+    }
+
     reverse_proxy ctfd:8000 {
         header_up X-Real-IP         {remote_host}
         header_up X-Forwarded-For   {remote_host}

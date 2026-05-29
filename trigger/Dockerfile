@@ -17,6 +17,7 @@ COPY static_ctf/ctfbuilder.py ./ctfbuilder.py
 COPY static_ctf/build.py      ./build.py
 COPY static_ctf/fortinet.css  ./fortinet.css
 COPY static_ctf/home.html     ./home.html
+COPY static_ctf/game.html     ./game.html
 COPY static_ctf/ctf/          ./ctf/
 
 # ── Dynamic bridge (subprocess) ────────────────────────────────────────────

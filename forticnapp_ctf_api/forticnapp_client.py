@@ -52,7 +52,9 @@ class FortiCNAPPClient:
 
     @property
     def base_url(self) -> str:
-        return f"https://{self.account}.lacework.net/api/v2"
+        # Accept both "partner-demo" and "partner-demo.lacework.net"
+        account = self.account.removesuffix(".lacework.net")
+        return f"https://{account}.lacework.net/api/v2"
 
     # ---- auth ----------------------------------------------------------------
 

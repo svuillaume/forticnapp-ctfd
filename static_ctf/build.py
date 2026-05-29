@@ -123,9 +123,10 @@ def main():
     if args.theme_only:
         ctfd = CTFd(config['ctfd_api_key'], config['ctfd_url'])
         wait_for_ctfd(config['ctfd_url'], config['ctfd_api_key'])
-        logger.info('Applying Fortinet theme + home page (theme-only mode).')
+        logger.info('Applying Fortinet theme + home page + game page (theme-only mode).')
         _apply_theme(ctfd, config)
         _apply_home_page(ctfd, config)
+        _apply_game_page(ctfd, config)
         logger.info('Theme applied.')
         sys.exit(0)
 
@@ -149,6 +150,7 @@ def main():
         cb.build_ctf(schema, args.category)
         _apply_theme(ctfd, config)
         _apply_home_page(ctfd, config)
+        _apply_game_page(ctfd, config)
         logger.info('Static CTF build complete.')
         sys.exit(0)
 
@@ -156,22 +158,61 @@ def main():
 _MODE_BANNER_JS = """
 <script>
 (function(){try{
-  localStorage.setItem('fctf_mode','ctf-lab');
+  var _trig=window.location.port==='8000'
+    ?'http://'+window.location.hostname+':5556':'/trigger';
   function _mb(){
     if(document.getElementById('_fctf_mode_bar'))return;
     var p=location.pathname;if(p==='/'||p==='')return;
+    var mode=localStorage.getItem('fctf_mode');
+    if(!mode)return;
+    var isLab=(mode==='ctf-lab'),col=isLab?'#DA291C':'#00b0cc';
     var b=document.createElement('div');b.id='_fctf_mode_bar';
-    b.style.cssText='background:rgba(218,41,28,0.12);border-bottom:2px solid #DA291C;'+
-      'padding:0.4rem 1rem;text-align:center;font-family:Inter,system-ui,sans-serif;'+
-      'font-size:0.78rem;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:#DA291C;';
-    b.innerHTML='&#9724; CTF Lab &nbsp;&mdash;&nbsp; <span style="font-weight:400;text-transform:none;'+
-      'letter-spacing:0;opacity:0.85">21 hand-crafted FortiCNAPP scenarios &nbsp;&bull;&nbsp; '+
-      '<a href="/" style="color:#DA291C;opacity:0.7">&#8592; Back to mode selector</a></span>';
+    b.style.cssText='background:'+(isLab?'rgba(218,41,28,0.12)':'rgba(0,176,204,0.12)')+
+      ';border-bottom:2px solid '+col+';padding:0.4rem 1rem;text-align:center;'+
+      'font-family:Inter,system-ui,sans-serif;font-size:0.78rem;font-weight:700;'+
+      'letter-spacing:0.07em;text-transform:uppercase;color:'+col+';';
+    b.innerHTML=(isLab?'&#9724; CTF Lab':'&#128225; Live CTF')+
+      '&nbsp;&mdash;&nbsp;<span style="font-weight:400;text-transform:none;letter-spacing:0;opacity:0.85">'+
+      (isLab?'21 hand-crafted FortiCNAPP scenarios':'Challenges from your FortiCNAPP tenant')+
+      '&nbsp;&bull;&nbsp;<a href="/" style="color:'+col+';opacity:0.7">&#8592; Back to mode selector</a></span>';
     var n=document.querySelector('nav.navbar')||document.querySelector('nav');
     if(n&&n.parentNode)n.parentNode.insertBefore(b,n.nextSibling);
     else document.body.insertBefore(b,document.body.firstChild);
   }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',_mb);else _mb();
+  function _sbReset(){
+    if(location.pathname!=='/scoreboard')return;
+    if(document.getElementById('_fctf_sb_reset'))return;
+    var btn=document.createElement('button');
+    btn.id='_fctf_sb_reset';
+    btn.innerHTML='<i class="fas fa-trash-alt" style="margin-right:0.4em"></i>Reset Game Scores';
+    btn.style.cssText='position:fixed;bottom:1.5rem;right:1.5rem;z-index:9000;'+
+      'background:#b91c1c;color:#fff;border:none;border-radius:8px;'+
+      'padding:0.65rem 1.25rem;font-size:0.82rem;font-weight:700;cursor:pointer;'+
+      'box-shadow:0 4px 18px rgba(185,28,28,0.45);font-family:Inter,system-ui,sans-serif;'+
+      'transition:opacity 0.15s;';
+    btn.onmouseover=function(){btn.style.opacity='0.85';};
+    btn.onmouseout=function(){btn.style.opacity='1';};
+    btn.onclick=function(){
+      if(!confirm('Remove ALL CNAPP Game points from the scoreboard for every player?\\n\\nThis cannot be undone.'))return;
+      btn.disabled=true;btn.innerHTML='Resetting…';
+      fetch(_trig+'/game/reset-awards',{method:'POST'})
+        .then(function(r){return r.json();})
+        .then(function(d){
+          btn.disabled=false;
+          btn.innerHTML='<i class="fas fa-trash-alt" style="margin-right:0.4em"></i>Reset Game Scores';
+          alert('Done — '+(d.deleted||0)+' award(s) removed. Reload to see updated scores.');
+          window.location.reload();
+        })
+        .catch(function(){
+          btn.disabled=false;
+          btn.innerHTML='<i class="fas fa-trash-alt" style="margin-right:0.4em"></i>Reset Game Scores';
+          alert('Could not reach trigger service.');
+        });
+    };
+    document.body.appendChild(btn);
+  }
+  function _init(){_mb();_sbReset();}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',_init);else _init();
 }catch(e){}})();
 </script>"""
 
@@ -279,6 +320,61 @@ def _apply_home_page(ctfd, config: dict) -> None:
             logger.warning('Home page update failed [%d]: %s', r2.status_code, r2.text[:200])
     except Exception as exc:
         logger.warning('Could not apply home page: %s', exc)
+
+
+def _apply_game_page(ctfd, config: dict) -> None:
+    """Push the Knowledge CNAPP Game as a CTFd page at /game."""
+    import requests
+
+    html_candidates = [
+        os.path.join(os.path.dirname(__file__), 'game.html'),
+        '/app/game.html',
+    ]
+    html = ''
+    for path in html_candidates:
+        if isfile(path):
+            with open(path) as fh:
+                html = fh.read()
+            logger.info('Applying game page from %s', path)
+            break
+
+    if not html:
+        logger.warning('game.html not found — skipping game page update')
+        return
+
+    headers = {
+        'Authorization': f"Token {config['ctfd_api_key']}",
+        'Content-Type': 'application/json',
+    }
+    base = config['ctfd_url']
+
+    try:
+        r = requests.get(f'{base}/api/v1/pages', headers=headers, timeout=15)
+        pages = r.json().get('data', [])
+        page_id = next((p['id'] for p in pages if p.get('route') == 'game'), None)
+
+        payload = {
+            'title': 'CNAPP Game',
+            'content': html,
+            'route': 'game',
+            'format': 'html',
+            'draft': False,
+            'auth_required': False,
+        }
+
+        if page_id:
+            r2 = requests.patch(f'{base}/api/v1/pages/{page_id}',
+                                json=payload, headers=headers, timeout=15)
+        else:
+            r2 = requests.post(f'{base}/api/v1/pages',
+                               json=payload, headers=headers, timeout=15)
+
+        if r2.ok and r2.json().get('success'):
+            logger.info('Game page applied to CTFd at /game.')
+        else:
+            logger.warning('Game page update failed [%d]: %s', r2.status_code, r2.text[:200])
+    except Exception as exc:
+        logger.warning('Could not apply game page: %s', exc)
 
 
 if __name__ == '__main__':

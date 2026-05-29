@@ -128,23 +128,33 @@ def _run_dynamic(account: str = '', key_id: str = '', secret: str = '',
     if secret:     env['FORTICNAPP_API_SECRET'] = secret
     if subaccount: env['FORTICNAPP_SUBACCOUNT'] = subaccount
 
+    def _restore_defaults():
+        restore = _push_default_challenges(5)
+        n = restore.get('created', 0)
+        return f'\n[Auto-restored {n} default question(s) — use Reset on the home page to get a fresh set]'
+
     try:
         result = subprocess.run(
             ['python', '-m', 'dynamic'],
             capture_output=True, text=True, timeout=300,
             env=env, cwd='/app',
         )
-        s['status'] = 'success' if result.returncode == 0 else 'error'
-        s['log']    = prefix_log + (result.stdout + result.stderr)[-3800:]
+        raw_log = prefix_log + (result.stdout + result.stderr)[-3800:]
+        if result.returncode == 0:
+            s['status'] = 'success'
+            s['log']    = raw_log
+        else:
+            s['status'] = 'error'
+            s['log']    = raw_log + _restore_defaults()
     except FileNotFoundError:
         s['status'] = 'error'
-        s['log']    = prefix_log + 'Dynamic bridge not found at /app/dynamic.'
+        s['log']    = prefix_log + 'Dynamic bridge not found at /app/dynamic.' + _restore_defaults()
     except subprocess.TimeoutExpired:
         s['status'] = 'error'
-        s['log']    = prefix_log + 'Build timed out after 300 s.'
+        s['log']    = prefix_log + 'Build timed out after 300 s.' + _restore_defaults()
     except Exception as exc:
         s['status'] = 'error'
-        s['log']    = prefix_log + str(exc)
+        s['log']    = prefix_log + str(exc) + _restore_defaults()
     finally:
         s['finished'] = time.time()
 
@@ -726,6 +736,79 @@ def run_theme():
     """Apply Fortinet theme CSS + home page to CTFd. Does not touch challenges."""
     ok, log = _run_theme()
     return jsonify({'ok': ok, 'log': log[-2000:]}), 200 if ok else 500
+
+
+_GAME_AWARD_NAME = 'CNAPP Game'
+
+
+@app.route('/game/award', methods=['POST'])
+def game_award():
+    """Create a CTFd award for a correct CNAPP Game answer."""
+    import requests as req_lib
+
+    body    = request.get_json(silent=True) or {}
+    user_id = body.get('user_id')
+    pts     = body.get('pts', 0)
+    question = str(body.get('question', ''))[:200]
+
+    if not user_id or not isinstance(pts, int) or pts <= 0:
+        abort(400, description='user_id and positive pts are required')
+    if not ADMIN_TOKEN:
+        abort(503, description='CTFD_ADMIN_TOKEN not configured')
+
+    headers = {'Authorization': f'Token {ADMIN_TOKEN}', 'Content-Type': 'application/json'}
+    payload = {
+        'user_id':     user_id,
+        'name':        _GAME_AWARD_NAME,
+        'value':       pts,
+        'description': question,
+        'icon':        '',
+    }
+    try:
+        r = req_lib.post(f'{CTFD_URL}/api/v1/awards', json=payload,
+                         headers=headers, timeout=10)
+        if r.ok:
+            award_id = r.json().get('data', {}).get('id')
+            logger.info('Game award created: user=%s pts=%d id=%s', user_id, pts, award_id)
+            return jsonify({'ok': True, 'award_id': award_id}), 200
+        logger.warning('Award create failed [%d]: %s', r.status_code, r.text[:120])
+        return jsonify({'ok': False, 'error': r.text[:120]}), r.status_code
+    except Exception as exc:
+        logger.warning('Award create error: %s', exc)
+        return jsonify({'ok': False, 'error': str(exc)}), 500
+
+
+@app.route('/game/reset-awards', methods=['POST'])
+def game_reset_awards():
+    """Delete all CNAPP Game awards from CTFd (resets game scores on scoreboard)."""
+    import requests as req_lib
+
+    if not ADMIN_TOKEN:
+        abort(503, description='CTFD_ADMIN_TOKEN not configured')
+
+    headers = {'Authorization': f'Token {ADMIN_TOKEN}', 'Content-Type': 'application/json'}
+    try:
+        r = req_lib.get(f'{CTFD_URL}/api/v1/awards', headers=headers,
+                        params={'limit': 500}, timeout=15)
+        r.raise_for_status()
+        awards = [a for a in r.json().get('data', []) if a.get('name') == _GAME_AWARD_NAME]
+    except Exception as exc:
+        return jsonify({'ok': False, 'error': f'Could not list awards: {exc}'}), 500
+
+    deleted, failed = 0, 0
+    for award in awards:
+        try:
+            d = req_lib.delete(f'{CTFD_URL}/api/v1/awards/{award["id"]}',
+                               headers=headers, timeout=10)
+            if d.ok:
+                deleted += 1
+            else:
+                failed += 1
+        except Exception:
+            failed += 1
+
+    logger.info('Game awards reset: deleted=%d failed=%d', deleted, failed)
+    return jsonify({'ok': failed == 0, 'deleted': deleted, 'failed': failed}), 200
 
 
 @app.route('/run/static', methods=['POST'])

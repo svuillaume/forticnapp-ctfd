@@ -186,22 +186,61 @@ class CTFdClient:
     _MODE_BANNER_JS = """
 <script>
 (function(){try{
-  localStorage.setItem('fctf_mode','live-ctf');
+  var _trig=window.location.port==='8000'
+    ?'http://'+window.location.hostname+':5556':'/trigger';
   function _mb(){
     if(document.getElementById('_fctf_mode_bar'))return;
     var p=location.pathname;if(p==='/'||p==='')return;
+    var mode=localStorage.getItem('fctf_mode');
+    if(!mode)return;
+    var isLab=(mode==='ctf-lab'),col=isLab?'#DA291C':'#00b0cc';
     var b=document.createElement('div');b.id='_fctf_mode_bar';
-    b.style.cssText='background:rgba(0,176,204,0.12);border-bottom:2px solid #00b0cc;'+
-      'padding:0.4rem 1rem;text-align:center;font-family:Inter,system-ui,sans-serif;'+
-      'font-size:0.78rem;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:#00b0cc;';
-    b.innerHTML='&#128225; Live CTF &nbsp;&mdash;&nbsp; <span style="font-weight:400;text-transform:none;'+
-      'letter-spacing:0;opacity:0.85">Challenges from your FortiCNAPP tenant &nbsp;&bull;&nbsp; '+
-      '<a href="/" style="color:#00b0cc;opacity:0.7">&#8592; Back to mode selector</a></span>';
+    b.style.cssText='background:'+(isLab?'rgba(218,41,28,0.12)':'rgba(0,176,204,0.12)')+
+      ';border-bottom:2px solid '+col+';padding:0.4rem 1rem;text-align:center;'+
+      'font-family:Inter,system-ui,sans-serif;font-size:0.78rem;font-weight:700;'+
+      'letter-spacing:0.07em;text-transform:uppercase;color:'+col+';';
+    b.innerHTML=(isLab?'&#9724; CTF Lab':'&#128225; Live CTF')+
+      '&nbsp;&mdash;&nbsp;<span style="font-weight:400;text-transform:none;letter-spacing:0;opacity:0.85">'+
+      (isLab?'21 hand-crafted FortiCNAPP scenarios':'Challenges from your FortiCNAPP tenant')+
+      '&nbsp;&bull;&nbsp;<a href="/" style="color:'+col+';opacity:0.7">&#8592; Back to mode selector</a></span>';
     var n=document.querySelector('nav.navbar')||document.querySelector('nav');
     if(n&&n.parentNode)n.parentNode.insertBefore(b,n.nextSibling);
     else document.body.insertBefore(b,document.body.firstChild);
   }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',_mb);else _mb();
+  function _sbReset(){
+    if(location.pathname!=='/scoreboard')return;
+    if(document.getElementById('_fctf_sb_reset'))return;
+    var btn=document.createElement('button');
+    btn.id='_fctf_sb_reset';
+    btn.innerHTML='<i class="fas fa-trash-alt" style="margin-right:0.4em"></i>Reset Game Scores';
+    btn.style.cssText='position:fixed;bottom:1.5rem;right:1.5rem;z-index:9000;'+
+      'background:#b91c1c;color:#fff;border:none;border-radius:8px;'+
+      'padding:0.65rem 1.25rem;font-size:0.82rem;font-weight:700;cursor:pointer;'+
+      'box-shadow:0 4px 18px rgba(185,28,28,0.45);font-family:Inter,system-ui,sans-serif;'+
+      'transition:opacity 0.15s;';
+    btn.onmouseover=function(){btn.style.opacity='0.85';};
+    btn.onmouseout=function(){btn.style.opacity='1';};
+    btn.onclick=function(){
+      if(!confirm('Remove ALL CNAPP Game points from the scoreboard for every player?\\n\\nThis cannot be undone.'))return;
+      btn.disabled=true;btn.innerHTML='Resetting…';
+      fetch(_trig+'/game/reset-awards',{method:'POST'})
+        .then(function(r){return r.json();})
+        .then(function(d){
+          btn.disabled=false;
+          btn.innerHTML='<i class="fas fa-trash-alt" style="margin-right:0.4em"></i>Reset Game Scores';
+          alert('Done — '+(d.deleted||0)+' award(s) removed. Reload to see updated scores.');
+          window.location.reload();
+        })
+        .catch(function(){
+          btn.disabled=false;
+          btn.innerHTML='<i class="fas fa-trash-alt" style="margin-right:0.4em"></i>Reset Game Scores';
+          alert('Could not reach trigger service.');
+        });
+    };
+    document.body.appendChild(btn);
+  }
+  function _init(){_mb();_sbReset();}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',_init);else _init();
 }catch(e){}})();
 </script>"""
 
